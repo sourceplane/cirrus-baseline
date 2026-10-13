@@ -81,6 +81,7 @@ automation:
 
 environments:
   dev:
+    description: Verify-only. Pull requests plan and verify here; nothing is deployed, so there is no door.
     activation:
       triggerRefs:
         - github-pull-request
@@ -103,6 +104,11 @@ environments:
       BASE_DOMAIN: cirrus-baseline.dev
 
   stage:
+    description: The fleet, the API edge and the console, deployed on every merge to main before prod.
+    url: https://cirrus-baseline-web-console-next-stage.rahulvarghesepullely.workers.dev
+    links:
+      - { title: API, url: https://cirrus-baseline-api-edge-stage.rahulvarghesepullely.workers.dev }
+      - { title: Health, url: https://cirrus-baseline-api-edge-stage.rahulvarghesepullely.workers.dev/health }
     activation:
       triggerRefs:
         - github-pull-request
@@ -121,6 +127,11 @@ environments:
       BASE_DOMAIN: cirrus-baseline.dev
 
   prod:
+    description: Where customers are. Deploys after stage converges on the same commit.
+    url: https://cirrus-baseline-web-console-next-prod.rahulvarghesepullely.workers.dev
+    links:
+      - { title: API, url: https://cirrus-baseline-api-edge-prod.rahulvarghesepullely.workers.dev }
+      - { title: Health, url: https://cirrus-baseline-api-edge-prod.rahulvarghesepullely.workers.dev/health }
     activation:
       triggerRefs:
         - github-pull-request
