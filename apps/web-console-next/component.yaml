@@ -9,6 +9,9 @@ spec:
   owner: platform
   domain: starter-ui
   path: apps/web-console-next
+  # Its own lane per environment (execution.lanes in intent.yaml): the Next.js
+  # build is the longest job in the plan, and a shared lane would wait on it.
+  lane: isolated
   # The deploy smoke health-checks the api-edge worker
   # (cirrus-baseline-api-edge-<env>/health), so api-edge must be live before this
   # component's stage/prod deploy+smoke runs. Without this ordering the smoke

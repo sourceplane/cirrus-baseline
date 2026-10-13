@@ -21,6 +21,17 @@ execution:
     # default branch, keeping the org-global catalog head fresh without an
     # explicit `--push-catalog`.
     autopushCatalog: true
+  # Lanes (orun ≥ v2.76.0): CI runs one GitHub job per LANE, not per orun job.
+  # Auto mode leaves a plan of up to 16 jobs as one lane per job (a typical
+  # pull request is unchanged) and packs a bigger one — a merge to main, a
+  # bootstrap phase — into at most 16 lanes, keeping each environment on its
+  # own runners and every dependency chain (db-migrate → the workers that wait
+  # on it) inside one lane. Every job still gets its own check run, named as
+  # before, so branch protection is unaffected. web-console-next is isolated
+  # (component.yaml): its build is the longest and must not hold up a lane.
+  lanes:
+    mode: auto
+    maxLanes: 16
 
 compositions:
   sources:
