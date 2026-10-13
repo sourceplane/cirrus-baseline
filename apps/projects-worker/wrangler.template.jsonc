@@ -1,0 +1,57 @@
+// Rendered to wrangler.jsonc by tooling/wire/render.mjs (BF6 deploy-time wiring).
+// Resource IDs are NEVER committed: @@wiring(<component>/<env>:<key>)@@ tokens are
+// resolved from the workspace's orun secrets at deploy time (wire-live) or from the
+// committed wiring.fixture.json for offline dry-runs (wire-fixture).
+{
+  "name": "cirrus-baseline-projects-worker",
+  "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "src/index.ts",
+  "minify": false,
+  "vars": {
+    "ENVIRONMENT": "local"
+  },
+  "env": {
+    "dev": {
+      "vars": {
+        "ENVIRONMENT": "dev"
+      }
+    },
+    "stage": {
+      "workers_dev": false,
+      "vars": {
+        "ENVIRONMENT": "stage"
+      },
+      "d1_databases": [
+        {
+          "binding": "PLATFORM_DB",
+          "database_name": "cirrus-baseline-stage",
+          "database_id": "@@wiring(cloudflare-d1/stage:d1_database_id)@@"
+        }
+      ],
+      "services": [
+        // @cycle-break:projects-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXN0YWdlIgogICAgICAgIH0s
+        // @cycle-break+nl:projects-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1zdGFnZSIKICAgICAgICB9
+// @cycle-break:projects-worker->billing-worker:LAogICAgICAgIHsKICAgICAgICAgICJiaW5kaW5nIjogIkJJTExJTkdfV09SS0VSIiwKICAgICAgICAgICJzZXJ2aWNlIjogImNpcnJ1cy1iYXNlbGluZS1iaWxsaW5nLXdvcmtlci1zdGFnZSIKICAgICAgICB9
+      ]
+    },
+    "prod": {
+      "workers_dev": false,
+      "vars": {
+        "ENVIRONMENT": "prod"
+      },
+      "d1_databases": [
+        {
+          "binding": "PLATFORM_DB",
+          "database_name": "cirrus-baseline-prod",
+          "database_id": "@@wiring(cloudflare-d1/prod:d1_database_id)@@"
+        }
+      ],
+      "services": [
+        // @cycle-break:projects-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXByb2QiCiAgICAgICAgfSw=
+        // @cycle-break+nl:projects-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1wcm9kIgogICAgICAgIH0=
+// @cycle-break:projects-worker->billing-worker:LAogICAgICAgIHsKICAgICAgICAgICJiaW5kaW5nIjogIkJJTExJTkdfV09SS0VSIiwKICAgICAgICAgICJzZXJ2aWNlIjogImNpcnJ1cy1iYXNlbGluZS1iaWxsaW5nLXdvcmtlci1wcm9kIgogICAgICAgIH0=
+      ]
+    }
+  }
+}

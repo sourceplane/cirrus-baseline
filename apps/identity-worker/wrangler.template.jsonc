@@ -1,0 +1,89 @@
+// Rendered to wrangler.jsonc by tooling/wire/render.mjs (BF6 deploy-time wiring).
+// Resource IDs are NEVER committed: @@wiring(<component>/<env>:<key>)@@ tokens are
+// resolved from the workspace's orun secrets at deploy time (wire-live) or from the
+// committed wiring.fixture.json for offline dry-runs (wire-fixture).
+{
+  "name": "cirrus-baseline-identity-worker",
+  "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "src/index.ts",
+  "minify": false,
+  // OAuth (B1) configuration:
+  //   - Non-secret vars are declared per-env below. Replace the empty
+  //     {GITHUB,GOOGLE}_OAUTH_CLIENT_ID placeholders with the client id of the
+  //     OAuth app registered for that provider + environment.
+  //   - Secrets are NEVER stored here. Set them with:
+  //       wrangler secret put GITHUB_OAUTH_CLIENT_SECRET --env <env>
+  //       wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET --env <env>
+  //       wrangler secret put OAUTH_STATE_SECRET         --env <env>
+  //   - Each OAuth app's authorized redirect/callback URL must be:
+  //       {OAUTH_REDIRECT_BASE_URL}/v1/auth/oauth/{github|google}/callback
+  "vars": {
+    "ENVIRONMENT": "local",
+    "DEBUG_DELIVERY": "true",
+    "GITHUB_OAUTH_CLIENT_ID": "",
+    "GOOGLE_OAUTH_CLIENT_ID": "",
+    "OAUTH_REDIRECT_BASE_URL": "http://localhost:8787",
+    "OAUTH_ALLOWED_CONSOLE_ORIGINS": "http://localhost:3000",
+    "SOLO_MODE": "true"
+  },
+  "env": {
+    "dev": {
+      "vars": {
+        "ENVIRONMENT": "dev",
+        "DEBUG_DELIVERY": "true",
+        "GITHUB_OAUTH_CLIENT_ID": "",
+        "GOOGLE_OAUTH_CLIENT_ID": "",
+        "OAUTH_REDIRECT_BASE_URL": "",
+        "OAUTH_ALLOWED_CONSOLE_ORIGINS": "https://cirrus-baseline-web-console-next-dev.rahulvarghesepullely.workers.dev",
+        "SOLO_MODE": "true"
+      }
+    },
+    "stage": {
+      "vars": {
+        "ENVIRONMENT": "stage",
+        "DEBUG_DELIVERY": "true",
+        "GITHUB_OAUTH_CLIENT_ID": "Ov23liKBsjAqJJsmBavV",
+        "GOOGLE_OAUTH_CLIENT_ID": "441163126775-7fabhvpbl9tsga921rklpdlde7mduq34.apps.googleusercontent.com",
+        "OAUTH_REDIRECT_BASE_URL": "https://cirrus-baseline-api-edge-stage.rahulvarghesepullely.workers.dev",
+        "OAUTH_ALLOWED_CONSOLE_ORIGINS": "https://stage.cirrus-baseline.dev,https://cirrus-baseline-web-console-next-stage.rahulvarghesepullely.workers.dev",
+        "SOLO_MODE": "true"
+      },
+      "d1_databases": [
+        {
+          "binding": "PLATFORM_DB",
+          "database_name": "cirrus-baseline-stage",
+          "database_id": "@@wiring(cloudflare-d1/stage:d1_database_id)@@"
+        }
+      ],
+      "services": [
+        // @cycle-break:identity-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXN0YWdlIgogICAgICAgIH0s
+        // @cycle-break+nl:identity-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1zdGFnZSIKICAgICAgICB9
+// @cycle-break:identity-worker->notifications-worker:LAogICAgICAgIHsKICAgICAgICAgICJiaW5kaW5nIjogIk5PVElGSUNBVElPTlNfV09SS0VSIiwKICAgICAgICAgICJzZXJ2aWNlIjogImNpcnJ1cy1iYXNlbGluZS1ub3RpZmljYXRpb25zLXdvcmtlci1zdGFnZSIKICAgICAgICB9
+      ]
+    },
+    "prod": {
+      "vars": {
+        "ENVIRONMENT": "prod",
+        "DEBUG_DELIVERY": "false",
+        "GITHUB_OAUTH_CLIENT_ID": "Ov23lilp2aoyeBDVU8Vc",
+        "GOOGLE_OAUTH_CLIENT_ID": "441163126775-7fabhvpbl9tsga921rklpdlde7mduq34.apps.googleusercontent.com",
+        "OAUTH_REDIRECT_BASE_URL": "https://cirrus-baseline-api-edge-prod.rahulvarghesepullely.workers.dev",
+        "OAUTH_ALLOWED_CONSOLE_ORIGINS": "https://prod.cirrus-baseline.dev,https://cirrus-baseline-web-console-next-prod.rahulvarghesepullely.workers.dev",
+        "SOLO_MODE": "true"
+      },
+      "d1_databases": [
+        {
+          "binding": "PLATFORM_DB",
+          "database_name": "cirrus-baseline-prod",
+          "database_id": "@@wiring(cloudflare-d1/prod:d1_database_id)@@"
+        }
+      ],
+      "services": [
+        // @cycle-break:identity-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXByb2QiCiAgICAgICAgfSw=
+        // @cycle-break+nl:identity-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1wcm9kIgogICAgICAgIH0=
+// @cycle-break:identity-worker->notifications-worker:LAogICAgICAgIHsKICAgICAgICAgICJiaW5kaW5nIjogIk5PVElGSUNBVElPTlNfV09SS0VSIiwKICAgICAgICAgICJzZXJ2aWNlIjogImNpcnJ1cy1iYXNlbGluZS1ub3RpZmljYXRpb25zLXdvcmtlci1wcm9kIgogICAgICAgIH0=
+      ]
+    }
+  }
+}
