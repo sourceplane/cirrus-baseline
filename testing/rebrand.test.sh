@@ -26,6 +26,21 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 rebrand="$here/../tooling/rebrand/rebrand.mjs"
 
+# THE FIXTURES PIN THE BASELINE'S IDENTITY, they do not inherit this tree's.
+#
+# What this suite tests is the rename ENGINE — held values, word boundaries,
+# the workspace segment of a secret ref, idempotence across a bootstrap's
+# repeated passes — and every fixture below spells one baseline's identity out
+# literally (`secret://lumen/cirrus/…`, `cirrus.app`, `Cirrus-Webhooks`, and
+# the glued `cirrus.appcirrus` boundary case). rebrand.mjs resolves the FROM
+# identity from its own location, so without this the suite would read
+# THIS repository's `.baseline/identity.json` and every fixture would be
+# comparing against the wrong baseline — which is exactly what happened the
+# first time the factory moved into a repository not called `cirrus`.
+#
+# Pinned, the suite is deterministic and says the same thing in any baseline.
+identity="$here/fixtures/baseline-identity.cirrus.json"
+
 fail=0
 # check NAME VALUES-JSON FILE CONTENT WANT [PASSES]
 #   PASSES — how many times the rebrand runs over the tree (default 1). A
@@ -40,7 +55,7 @@ check() {
   printf '%s\n' "$values" > "$tmp/.rebrand/values.json"
   for ((i = 1; i <= passes; i++)); do
     git -C "$tmp" add -A
-    if ! out="$(cd "$tmp" && node "$rebrand" --values .rebrand/values.json --allow-dirty 2>&1)"; then
+    if ! out="$(cd "$tmp" && node "$rebrand" --baseline-identity "$identity" --values .rebrand/values.json --allow-dirty 2>&1)"; then
       echo "   ✕  $name: rebrand pass $i failed:" >&2
       printf '%s\n' "$out" | sed 's/^/        /' >&2
       fail=1
@@ -115,7 +130,7 @@ verify() { # NAME VALUES FILE CONTENT WANT(pass|fail) [--values]
   printf '%s\n' "$content" > "$tmp/$file"
   printf '%s\n' "$values" > "$tmp/.rebrand/values.json"
   git -C "$tmp" add -A
-  if (cd "$tmp" && node "$rebrand" --verify ${withvalues:+--values .rebrand/values.json} >/dev/null 2>&1); then got=pass; else got=fail; fi
+  if (cd "$tmp" && node "$rebrand" --baseline-identity "$identity" --verify ${withvalues:+--values .rebrand/values.json} >/dev/null 2>&1); then got=pass; else got=fail; fi
   rm -rf "$tmp"
   if [ "$got" = "$want" ]; then echo "   ok  $name"; else echo "   ✕  $name: --verify ${got}ed, want $want" >&2; fail=1; fi
 }
