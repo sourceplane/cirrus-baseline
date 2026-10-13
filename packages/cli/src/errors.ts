@@ -1,4 +1,4 @@
-// CLI error helpers. Translate `cirrusbaselineError` subclasses (from
+// CLI error helpers. Translate `CirrusBaselineError` subclasses (from
 // `@saas/sdk/errors`) into actionable CLI messages with non-zero exit
 // codes; surface request IDs.
 //
@@ -11,7 +11,7 @@
 //   5   — context missing (e.g. `org use` not run, command needs an org)
 //   6   — server-side error surfaced via SDK
 
-import { cirrusbaselineError, UnauthenticatedError } from "@saas/sdk";
+import { CirrusBaselineError, UnauthenticatedError } from "@saas/sdk";
 
 import { formatErrorJson, type OutputMode } from "./output/index.js";
 
@@ -59,7 +59,7 @@ export function formatCliError({ err, mode }: FormatErrorInput): FormattedError 
   if (err instanceof UnauthenticatedError) {
     return formatSdk(4, err, "token rejected — run `cirrus-baseline login` to refresh", mode);
   }
-  if (err instanceof cirrusbaselineError) {
+  if (err instanceof CirrusBaselineError) {
     return formatSdk(6, err, err.message, mode);
   }
   if (err instanceof Error) {
@@ -82,7 +82,7 @@ function formatPlain(
 
 function formatSdk(
   exitCode: number,
-  err: cirrusbaselineError,
+  err: CirrusBaselineError,
   hint: string,
   mode: OutputMode,
 ): FormattedError {

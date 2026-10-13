@@ -1,0 +1,26 @@
+# Task contract template for the 04-workers landing (saas-baseline-tracking BT1).
+# Unbound to a key on purpose: `orun task create --contract` seals and
+# attaches it to the key the allocator issues. gates: [] is a DECLARATION —
+# merge alone finishes this task; the main convergence is the gate the flow
+# watches, not one the plane observes as a PR check.
+apiVersion: orun.io/v1
+kind: TaskContract
+spec:
+  goal: The database migrations and the 12-worker fleet land with every worker-to-worker service binding stripped, so the whole fleet deploys as one wave on stage and prod
+  affects:
+    - db-migrate
+    - admin-worker
+    - billing-worker
+    - config-worker
+    - events-worker
+    - identity-worker
+    - integrations-worker
+    - membership-worker
+    - metering-worker
+    - notifications-worker
+    - policy-worker
+    - projects-worker
+    - webhooks-worker
+  doneWhen:
+    - convergence green with every worker-to-worker binding stripped (first wave)
+  gates: []

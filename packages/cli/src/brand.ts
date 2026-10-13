@@ -2,7 +2,7 @@
 //
 // The binary name, default API endpoint, OS keychain service, and config
 // directory live here so a rebranded instance retargets one file. The
-// `@saas/sdk` client class name (`cirrusbaseline`) is intentionally NOT part of
+// `@saas/sdk` client class name (`CirrusBaseline`) is intentionally NOT part of
 // this seam — it is a code identifier, handled by the blueprint rename map
 // (BF12), not a runtime value.
 

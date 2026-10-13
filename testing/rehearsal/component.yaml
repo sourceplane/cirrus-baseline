@@ -1,0 +1,81 @@
+apiVersion: sourceplane.io/v1
+kind: Component
+
+# THE REHEARSAL, AS A COMPONENT (saas-bootstrap-engine BE6b).
+#
+# Tier 3: bootstrap a whole product from this baseline into a real Cloudflare
+# account, assert it came up, record what it cost, and destroy it again.
+#
+# ─── WHY A COMPONENT AND NOT A WORKFLOW FILE ─────────────────────────────
+#
+# Because everything a rehearsal needs is what a component already gets:
+# secrets resolved lease-bound at claim time and redacted from logs, an
+# environment to scope them to, a job the runner executes with retry and a
+# timeout, and a plan that says what ran. A hand-written workflow would
+# reimplement each of those, less well, in YAML nobody else in this
+# repository reads.
+#
+# ─── THIS COMPONENT MUST NEVER SHIP ──────────────────────────────────────
+#
+# It is the factory testing itself. Three things hold that:
+#
+#   1. `testing/` is on the NEVER list of both leak gates, so no phase can
+#      place it and a run that tried would turn `leak.test.sh` red.
+#   2. `coverage.test.sh` requires every component directory to be placed by
+#      exactly one phase OR declared baseline-only, and this is the first
+#      entry in that map since BE4 emptied it — argued for in a diff,
+#      exactly as that comment asked.
+#   3. It is not in the repository's `intent.yaml` at all (see the intent
+#      beside this file), so a product does not even inherit a mention.
+
+metadata:
+  name: baseline-rehearsal
+  description: End-to-end bootstrap rehearsal — builds a throwaway product from this baseline and destroys it
+  labels:
+    domain: baseline
+    scope: tier-3-rehearsal
+
+spec:
+  type: baseline-rehearsal
+  lifecycle: production
+  owner: platform
+  domain: baseline
+  path: testing/rehearsal
+
+  parameters:
+    # The GitHub org the throwaway product repo is created under. Not
+    # `sourceplane` by default: a rehearsal creates and deletes repositories,
+    # and pointing that at the org the real products live in is one typo away
+    # from deleting one.
+    githuborg: sourceplane-rehearsal
+    # orun's floor for this baseline: v2.58.6 (see BOOTSTRAP.md) — v2.58.5
+    # is the first that can bootstrap it at all, v2.58.6 the first whose
+    # landings verify each phase's PR. `baseline new --local` arrived in v2.57.0.
+    orunVersion: v2.58.11
+    nodeVersion: "20"
+    # The baseline id in the registry. The rehearsal resolves the row, fetches
+    # the source at the PUBLISHED TAG and builds what it names — which is the
+    # point: it rehearses what a customer would actually get, not this
+    # working tree.
+    baselineId: cirrus
+
+  # ORUN-MANAGED SECRETS, RESOLVED LEASE-BOUND AT CLAIM TIME.
+  #
+  # Neither of these is a GitHub Actions secret, and that is the whole reason
+  # this is a component. They live in the platform's secret store, are
+  # resolved for the duration of the job and redacted from its logs, and a
+  # person can revoke either one without a commit here.
+  #
+  # CLOUDFLARE_API_TOKEN is the REHEARSAL ACCOUNT'S. It can reach nothing that
+  # anything is deployed to — that separation, and not the storage, is what
+  # bounds this lane's blast radius. It is a long-lived provider token and
+  # BOOTSTRAP.md's invariant says so rather than pretending otherwise.
+  secretEnv:
+    ORUN_TOKEN: "secret://lumen/cirrus-rehearsal/rehearsal/ORUN_REHEARSAL_KEY"
+    CLOUDFLARE_API_TOKEN: "secret://lumen/cirrus-rehearsal/rehearsal/CLOUDFLARE_REHEARSAL_TOKEN"
+    CLOUDFLARE_ACCOUNT_ID: "secret://lumen/cirrus-rehearsal/rehearsal/CLOUDFLARE_REHEARSAL_ACCOUNT"
+
+  subscribe:
+    environments:
+      - name: rehearsal
+        profile: nightly

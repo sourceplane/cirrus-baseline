@@ -1,0 +1,85 @@
+apiVersion: sourceplane.io/v1
+kind: Intent
+
+# THE REHEARSAL'S OWN INTENT (saas-bootstrap-engine BE6b).
+#
+# ─── WHY A SEPARATE INTENT AND NOT THE REPO'S ────────────────────────────
+#
+# The repository's `intent.yaml` is a PRODUCT FILE: `repo-blueprint.yaml`'s
+# `root-intent` module copies it verbatim into every product built from this
+# baseline. So anything declared there ships — and a product that inherited
+# this file's `kind: dir` composition source would carry a reference to a
+# `stack/` directory it does not have and never will.
+#
+# The component itself cannot leak (`testing/` is on both leak gates' NEVER
+# lists), but a dangling reference to it in the product's intent would, and
+# nothing would have caught that until somebody ran `orun plan` in a fork.
+#
+# So the rehearsal is planned explicitly against this file:
+#
+#   orun plan -i testing/rehearsal/intent.yaml --output rehearsal.json
+#   orun run  --plan rehearsal.json --runner github-actions
+#
+# Which is also the right shape on its own terms: a sixty-minute cloud
+# rehearsal has no business inside a pull request's `--changed` graph.
+#
+# ─── THE WORKSPACE IS NOT THIS REPOSITORY'S ──────────────────────────────
+#
+# A rehearsal bootstraps a whole product into a real Cloudflare account. It
+# runs against a workspace that exists for nothing else, so a run that goes
+# wrong cannot reach anything that matters. Set `ORUN_REHEARSAL_WORKSPACE`
+# in the lane; there is no default, because a default here would be a
+# production workspace one typo away.
+
+metadata:
+  name: cirrus-rehearsal
+  description: The baseline's own end-to-end bootstrap rehearsal (tier 3)
+  namespace: sourceplane
+
+execution:
+  state:
+    backendUrl: https://api-edge-prod.oruncloud.workers.dev
+    # No hardcoded workspace: see the header. The lane supplies it.
+    requireOrg: true
+    # NEVER push a catalog from a rehearsal. This intent describes one
+    # throwaway component in a throwaway tenancy, and syncing it would put
+    # that into the org-global catalog head beside the real product's.
+    autopushCatalog: false
+
+compositions:
+  sources:
+    # LOCAL, and deliberately not an OCI artifact — unlike the repository's
+    # own `stack-tectonic` pin. The reasoning there is that a published
+    # artifact must not change this repo's execution contracts without a
+    # commit here. That reasoning does not apply to a composition used by
+    # exactly one component in exactly this repository: publishing it would
+    # add a release step, a version to bump and a registry to be down,
+    # to buy a reproducibility this directory already has by being committed.
+    - name: rehearsal-stack
+      kind: dir
+      path: ./stack
+  resolution:
+    precedence:
+      - rehearsal-stack
+    bindings:
+      baseline-rehearsal: rehearsal-stack
+
+discovery:
+  roots:
+    # This directory and nothing else. The repository's components are not
+    # this plan's business — a rehearsal builds a product from the blueprint,
+    # it does not deploy this repository.
+    - ./
+
+automation:
+  triggerBindings:
+    nightly:
+      description: The nightly rehearsal on main
+      on:
+        provider: local
+
+environments:
+  rehearsal:
+    activation:
+      triggerRefs:
+        - nightly

@@ -1,9 +1,9 @@
-// Typed error hierarchy for the cirrusbaseline SDK.
+// Typed error hierarchy for the CirrusBaseline SDK.
 //
 // The api-edge error envelope is:
 //   { error: { code: string, message: string, details: object, requestId?: string } }
 // where `code` is one of `ERROR_CODES` from `@saas/contracts/errors`. Unknown
-// codes (forward compatibility) fall back to the generic `cirrusbaselineError`
+// codes (forward compatibility) fall back to the generic `CirrusBaselineError`
 // base class with the raw envelope preserved.
 //
 // `RateLimitError` decodes the `Retry-After` and `X-RateLimit-{Limit,Remaining,
@@ -20,7 +20,7 @@ export interface ErrorEnvelope {
   requestId?: string;
 }
 
-export interface cirrusbaselineErrorInit {
+export interface CirrusBaselineErrorInit {
   envelope: ErrorEnvelope;
   status: number;
   requestId: string;
@@ -30,10 +30,10 @@ export interface cirrusbaselineErrorInit {
 
 /**
  * Base error type. Unknown error codes (forward-compat, e.g. a future
- * `quota_exceeded`) decode to this class — `instanceof cirrusbaselineError`
+ * `quota_exceeded`) decode to this class — `instanceof CirrusBaselineError`
  * still matches.
  */
-export class cirrusbaselineError extends Error {
+export class CirrusBaselineError extends Error {
   readonly code: string;
   readonly status: number;
   readonly requestId: string;
@@ -42,9 +42,9 @@ export class cirrusbaselineError extends Error {
   /** Present only when the error was synthesised from a real Response. */
   readonly response: Response | undefined;
 
-  constructor(init: cirrusbaselineErrorInit) {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init.envelope.message);
-    this.name = "cirrusbaselineError";
+    this.name = "CirrusBaselineError";
     this.code = init.envelope.code;
     this.status = init.status;
     this.requestId = init.requestId;
@@ -54,46 +54,46 @@ export class cirrusbaselineError extends Error {
   }
 }
 
-export class BadRequestError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class BadRequestError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "BadRequestError";
   }
 }
 
-export class UnauthenticatedError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class UnauthenticatedError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "UnauthenticatedError";
   }
 }
 
-export class ForbiddenError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class ForbiddenError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "ForbiddenError";
   }
 }
 
-export class NotFoundError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class NotFoundError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "NotFoundError";
   }
 }
 
-export class ConflictError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class ConflictError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "ConflictError";
   }
 }
 
-export class ValidationError extends cirrusbaselineError {
+export class ValidationError extends CirrusBaselineError {
   /** Field-level violations, when the server provides them. */
   readonly fields: Record<string, string[]>;
 
-  constructor(init: cirrusbaselineErrorInit) {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "ValidationError";
     const raw = init.envelope.details["fields"];
@@ -101,22 +101,22 @@ export class ValidationError extends cirrusbaselineError {
   }
 }
 
-export class PreconditionFailedError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class PreconditionFailedError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "PreconditionFailedError";
   }
 }
 
-export class UnsupportedError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class UnsupportedError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "UnsupportedError";
   }
 }
 
-export class InternalError extends cirrusbaselineError {
-  constructor(init: cirrusbaselineErrorInit) {
+export class InternalError extends CirrusBaselineError {
+  constructor(init: CirrusBaselineErrorInit) {
     super(init);
     this.name = "InternalError";
   }
@@ -131,14 +131,14 @@ export interface RateLimitWindow {
   resetAt: number | null;
 }
 
-export interface RateLimitErrorInit extends cirrusbaselineErrorInit {
+export interface RateLimitErrorInit extends CirrusBaselineErrorInit {
   retryAfterSeconds: number | null;
   /** Scope that tripped the limit (echoed from `details.scope`). */
   scope: "org" | "identity" | null;
   windows: RateLimitWindow[];
 }
 
-export class RateLimitError extends cirrusbaselineError {
+export class RateLimitError extends CirrusBaselineError {
   readonly retryAfterSeconds: number | null;
   readonly scope: "org" | "identity" | null;
   readonly windows: RateLimitWindow[];
@@ -167,19 +167,19 @@ export class RateLimitError extends cirrusbaselineError {
 // ---------------------------------------------------------------------------
 
 /**
- * Decode an HTTP `Response` into the appropriate `cirrusbaselineError` subclass.
+ * Decode an HTTP `Response` into the appropriate `CirrusBaselineError` subclass.
  *
- * Forward-compatible: unknown error codes resolve to the base `cirrusbaselineError`.
+ * Forward-compatible: unknown error codes resolve to the base `CirrusBaselineError`.
  * Robust to non-JSON 5xx bodies (gateway HTML, empty body, etc.) — synthesises
  * a generic `InternalError` envelope in that case.
  */
 export async function decodeError(
   response: Response,
   fallbackRequestId: string,
-): Promise<cirrusbaselineError> {
+): Promise<CirrusBaselineError> {
   const envelope = await readErrorEnvelope(response, fallbackRequestId);
   const requestId = envelope.requestId ?? fallbackRequestId;
-  const init: cirrusbaselineErrorInit = {
+  const init: CirrusBaselineErrorInit = {
     envelope,
     status: response.status,
     requestId,
@@ -209,12 +209,12 @@ export async function decodeError(
       return decodeRateLimit(init, response);
     default:
       // Forward-compat: unknown codes still surface a typed error.
-      return new cirrusbaselineError(init);
+      return new CirrusBaselineError(init);
   }
 }
 
 function decodeRateLimit(
-  init: cirrusbaselineErrorInit,
+  init: CirrusBaselineErrorInit,
   response: Response,
 ): RateLimitError {
   const retryAfter = parseIntHeader(response.headers.get("retry-after"));

@@ -10,7 +10,7 @@
 //   - Boolean flags pass `true`. The first positional that does NOT match a
 //     registered subcommand starts the positional list for that command.
 
-import type { cirrusbaseline } from "@saas/sdk";
+import type { CirrusBaseline } from "@saas/sdk";
 
 import type { OutputMode } from "./output/index.js";
 import type { TokenStore } from "./token-store/types.js";
@@ -26,11 +26,11 @@ export interface CommandContext {
   readonly contextStore: ContextStore;
   /**
    * Lazy SDK factory. Commands that need an authenticated client call this
-   * to read the token from the token store and instantiate `cirrusbaseline`.
+   * to read the token from the token store and instantiate `CirrusBaseline`.
    * Throws `MissingAuthError` (translated to a friendly message by `errors.ts`)
    * when no token is stored.
    */
-  readonly sdk: () => Promise<cirrusbaseline>;
+  readonly sdk: () => Promise<CirrusBaseline>;
 }
 
 export interface CommandResult {

@@ -1,0 +1,42 @@
+apiVersion: sourceplane.io/v1alpha1
+kind: ComponentSchema
+metadata:
+  name: baseline-rehearsal-component
+spec:
+  type: baseline-rehearsal
+  schema:
+    $schema: http://json-schema.org/draft-07/schema#
+    title: Baseline rehearsal component
+    type: object
+    required:
+      - name
+      - type
+      - parameters
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+        const: baseline-rehearsal
+      parameters:
+        type: object
+        required:
+          - githuborg
+          - orunVersion
+          - nodeVersion
+          - baselineId
+        properties:
+          githuborg:
+            type: string
+            description: The org the throwaway product repo is created under. Never the org real products live in.
+          orunVersion:
+            type: string
+            pattern: "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+            description: Pinned, never a range — a rehearsal that floats its engine is not reproducible.
+          nodeVersion:
+            type: string
+          baselineId:
+            type: string
+            description: The registry id to rehearse. Resolved at its PUBLISHED tag, not from this working tree.
+        additionalProperties: false
+    additionalProperties: true

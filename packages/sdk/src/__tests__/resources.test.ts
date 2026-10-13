@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { cirrusbaseline } from "../index.js";
+import { CirrusBaseline } from "../index.js";
 import {
   ConflictError,
   ForbiddenError,
@@ -62,8 +62,8 @@ function errorResponse(code: string, status: number): Response {
 
 type FetchImpl = typeof fetch;
 
-function client(fetchImpl: FetchImpl): cirrusbaseline {
-  return new cirrusbaseline({ baseUrl: "https://api.test", fetch: fetchImpl });
+function client(fetchImpl: FetchImpl): CirrusBaseline {
+  return new CirrusBaseline({ baseUrl: "https://api.test", fetch: fetchImpl });
 }
 
 // ---------------------------------------------------------------------------

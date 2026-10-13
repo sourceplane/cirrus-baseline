@@ -1,14 +1,14 @@
-// `@saas/sdk` — cirrusbaseline TypeScript SDK.
+// `@saas/sdk` — CirrusBaseline TypeScript SDK.
 //
 // Stable public surface:
-//   - `cirrusbaseline`              → the client class
+//   - `CirrusBaseline`              → the client class
 //   - Per-resource clients reachable via `client.<resource>`
 //   - typed error hierarchy from `./errors`
 //   - request/response types re-exported from `@saas/contracts`
 //
 // The transport (`Transport`, `generateRequestId`) is exported for advanced
 // callers (custom retry middleware, alt resource fan-out) but the typical
-// integration path is the `cirrusbaseline` class.
+// integration path is the `CirrusBaseline` class.
 
 import { ApiKeysClient } from "./apiKeys.js";
 import { AuthClient } from "./auth.js";
@@ -26,7 +26,7 @@ import { SecurityEventsClient } from "./securityEvents.js";
 import { WebhooksClient } from "./webhooks.js";
 import { Transport, type ClientOptions } from "./transport.js";
 
-export class cirrusbaseline {
+export class CirrusBaseline {
   readonly organizations: OrganizationsClient;
   readonly projects: ProjectsClient;
   readonly environments: EnvironmentsClient;
@@ -111,7 +111,7 @@ export {
 
 // Typed error hierarchy.
 export {
-  cirrusbaselineError,
+  CirrusBaselineError,
   BadRequestError,
   UnauthenticatedError,
   ForbiddenError,

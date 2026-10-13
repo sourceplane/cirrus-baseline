@@ -1,0 +1,27 @@
+apiVersion: sourceplane.io/v1alpha1
+kind: Composition
+metadata:
+  name: baseline-rehearsal
+spec:
+  type: baseline-rehearsal
+  description: Bootstrap a throwaway product from a published baseline, assert it, and destroy it
+
+  schemaRef:
+    name: baseline-rehearsal-component
+
+  defaultJob: rehearse
+  defaultProfile: nightly
+
+  jobs:
+    - name: rehearse
+      templateRef:
+        name: baseline-rehearsal-run
+
+  profiles:
+    # ONE profile, and no "dry" variant. A rehearsal that does not build is
+    # not a cheaper rehearsal — it is a green lane that proves nothing, and
+    # this epic has already been bitten once by a lane reporting `4 passed,
+    # 0 failed` with no test among them.
+    - name: nightly
+      profileRef:
+        name: baseline-rehearsal-nightly

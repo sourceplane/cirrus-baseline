@@ -1,0 +1,192 @@
+# The cirrus blueprint card: the CONTRACT the platform's bootstrap door reads
+# and the console renders, screen for screen (epic saas-bootstrap-console, BC1).
+#
+# Everything the console shows about this baseline comes from this file. Adding
+# a provider to `requires` grows a row in the Providers step; adding a key to
+# `secrets` grows a row in the Secrets step. Neither needs a console change.
+#
+# The division of labour with the registry is strict, and it is the whole point
+# of BC: the registry (orun-cloud `infra/baselines-registry/baselines.yaml`)
+# owns identity and commerce — id, visibility, tier, the pinned tag. This file
+# owns the build contract. NEITHER RESTATES THE OTHER. (The registry owned two
+# more paths, the brief and the umbrella, until BE4 deleted the layer they
+# named. This baseline is blueprint-driven: `spec.bootstrap` declares neither,
+# and the row that fetches this file declares neither either — orun-cloud
+# BE-K1d. Both are still the registry's for a baseline that has them.)
+#
+# That is why there is no `tag` here: this file is fetched *at* the tag
+# the registry pins, so a tag here could only ever be a second, rotting copy —
+# as it was, reading `baseline-v1` against a live `baseline-v4` for three
+# releases before anything noticed.
+apiVersion: orun.io/v1
+kind: Blueprint
+metadata:
+  name: cirrus-baseline
+  displayName: Cirrus Baseline — Cloudflare-only SaaS baseline
+  description: >
+    Multi-tenant SaaS on Cloudflare alone: 12 bounded-context Workers behind
+    one edge API, a Next.js console, D1 + KV data plane, migrations, and CI
+    that converges on merge. One provider, one consent, one token. Live on
+    stage+prod in ~25-30 minutes.
+  tags: [saas, cloudflare, d1, nextjs]
+spec:
+  source:
+    repo: sourceplane/cirrus-baseline
+    # No `tag`. See the header: the registry pins it, this file is fetched at it.
+
+  # ── What the operator reads first (the flow's step 1) ───────────────────
+  overview:
+    lede: >
+      A multi-tenant SaaS on Cloudflare alone. One provider, one consent,
+      one token.
+    architecture:
+      - layer: Edge
+        items: [api-edge, web-console-next]
+      - layer: Services
+        items: ["12 bounded-context Workers"]
+      - layer: Data
+        items: [D1, KV]
+      - layer: Delivery
+        items: [GitHub Actions, db-migrate]
+    outcome:
+      - Live on stage and prod
+      - Migrations apply on merge
+      - Its own CI from the first phase
+
+  requires:
+    # Cloudflare is the only provider connection a bootstrap needs — that is
+    # the whole point of this baseline. GitHub arrives as the App
+    # installation plus the repo link, not as a connection row.
+    integrations: [github, cloudflare]
+    apiKeyRole: admin          # secret writes need the admin floor
+
+  inputs:
+    # Every input is collected by the console (BE-K1, inputs v3). `askedBy` is
+    # gone: it divided inputs into ones a form collects and ones an agent asked
+    # for in the session, and there is no agent in the build path any more.
+    #
+    # The cost lands here. An `askedBy: agent` input was exempt from `pattern`,
+    # because prose asked for it and prose does not validate. Every input now
+    # carries the rule its value is checked against before Continue.
+    - key: reponame
+      label: Repo name
+      pattern: "^[a-z][a-z0-9-]{1,38}$"
+      # The console already has this: the operator picked the repository. Say
+      # so rather than making the flow ask for the name printed above the
+      # field — and say it HERE, because the only alternative was for the
+      # console to special-case this key by name, which would make the console
+      # the authority on what a baseline's own input means.
+      from: repo.name
+    - key: productname
+      label: Product display name
+      pattern: "^[A-Za-z0-9][A-Za-z0-9 .,'&-]{1,48}$"
+      help: The name people will see — in the console header, the emails, the docs.
+      example: Acme Cloud
+    - key: productdomain
+      label: Product domain
+      pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+      help: The apex domain the product answers on. It does not need to exist yet.
+      example: acme.dev
+    - key: apibaseurl
+      label: API base URL
+      pattern: "^https://[a-z0-9.-]+$"
+      help: Where the CLI and SDK point by default.
+      # Derived rather than asked: it is the product domain with a prefix, and
+      # a field for it is a field an operator can get subtly wrong (http, a
+      # trailing slash, api. on the wrong half) for no gain.
+      derive: "https://api.{productdomain}"
+    - key: githuborg
+      label: GitHub organisation
+      pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+      help: The GitHub org or user the product repository is created under.
+      # DERIVED FROM THE CHOSEN REPOSITORY, not asked. The operator picks the
+      # product repo in step 1, and its owner IS this value — a form field for
+      # it would be a second chance to get it wrong.
+      #
+      # It is here because `repo-blueprint.yaml` declares it `required: true`
+      # and this card did not declare it at all, so a platform build resolved
+      # the five inputs below, handed them to the runner, and died on its very
+      # first step with `✕ input "githuborg" is required`. The manifest gate is
+      # one-directional by design — the build may declare more than the card —
+      # but "more" may not include something the build REQUIRES and no one
+      # supplies.
+      from: repo.owner
+    - key: subdomain
+      label: workers.dev subdomain
+      pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
+      help: The workers.dev subdomain on the Cloudflare account this builds into.
+      example: acme
+      # NOT probed, though it is the obvious candidate: asking someone to look
+      # this up in a dashboard is a question the connection could answer. The
+      # action that would answer it does not exist — orun's registry is closed
+      # at nine and `orun.cloudflare/subdomain@v1` is not among them, so
+      # declaring it here would be a manifest promising a capability no runner
+      # has. It becomes a probe when the action does.
+
+  # ── PREVIEW ONLY. `repo-blueprint.yaml`'s `integrations/reconcile` hooks
+  # mint these, brokered, during phase 02. ────────────────────────────────
+  # Transcribed from those hooks' own `keys:` and `template:` values, so
+  # `testing/manifest.test.sh` compares this list to the document that mints
+  # them rather than to a copy of itself — it used to compare against a shell
+  # script's `create` calls, and BE4 deleted the script, not the check.
+  # The console renders them read-only: they are minted from the
+  # workspace's connections at build time, so no credential is ever typed,
+  # shown or stored in the console. Keys that already exist are kept.
+  secrets:
+    - key: CLOUDFLARE_API_TOKEN
+      provider: cloudflare
+      template: workers-deploy
+      why: Workers + KV deploys
+    - key: CLOUDFLARE_D1_TOKEN
+      provider: cloudflare
+      template: d1-edit
+      why: D1 — the deploy token deliberately cannot touch it
+    - key: CLOUDFLARE_ACCOUNT_ID
+      provider: cloudflare
+      template: account-id
+      why: Connection fact, not a secret
+      fact: true
+
+  # ── PREVIEW ONLY. repo-blueprint.yaml's run-level `hooks.preInstantiate`
+  # opens these — the epic, every milestone in this order, every task — before
+  # the first phase places. Idempotent by identity — epic by slug, milestone by
+  # name-within-epic — so a re-run finds what it made before. The console
+  # renders the programme so an operator can see the shape of the work before
+  # pressing Build, and the same shape on the plane the moment it starts.
+  programme:
+    epicSlug: infra-baselining         # = repo-blueprint.yaml's `epicSlug` default
+    epicName: "Infra baselining — {productname}"
+    milestones:
+      - name: 01-scaffold
+      # 03-infrastructure, 04-workers-restore and 06-console were folded into
+      # their neighbours' landings (02-foundation, 05-edge); the survivors
+      # keep their names, so the numbering has gaps.
+      - name: 02-foundation
+      - name: 04-workers
+      - name: 05-edge
+      # 07-domain carries `when: inputs.domain` in repo-blueprint.yaml (it
+      # needs the Cloudflare zone to already exist), so its milestone is
+      # ensured only on a run that asks for it. Declared with its condition
+      # rather than silently listed, so the console can say so.
+      - name: 07-domain
+        when: domain
+      - name: 08-docs
+
+  bootstrap:
+    # THE BUILD DOCUMENT: the file whose phases a runner places. This baseline
+    # has no umbrella and no agent brief — BE4 deleted the layer they named —
+    # so this is the only entry point, and without it a runner that fetched
+    # this repo at its pinned tag would have nothing to run. `manifestPath` in
+    # the registry row names THIS file, the console card; it is not the build.
+    blueprint: repo-blueprint.yaml
+    # Was 60. The bootstrap now runs five landings instead of eight, checks a
+    # landing's PR with `plan` only, deploys the fleet in one wave instead of
+    # in dependency order, and deploys stage and prod side by side
+    # (docs/phases/TIMINGS.md). An estimate until a rehearsal measures it.
+    expectedMinutes: 30
+    tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
+  verify:
+    urls:
+      - "https://{reponame}-api-edge-{env}.{subdomain}.workers.dev/health"
+      - "https://{reponame}-web-console-next-{env}.{subdomain}.workers.dev"
+    envs: [stage, prod]

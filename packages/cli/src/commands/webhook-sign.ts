@@ -1,5 +1,5 @@
 // `cirrus-baseline webhook sign` — local cryptographic signing of a
-// cirrusbaseline outbound webhook payload (Task 0107).
+// CirrusBaseline outbound webhook payload (Task 0107).
 //
 // Symmetric counterpart to `webhook verify` (Task 0106). Wraps
 // `@saas/webhook-verifier`'s `signWebhookPayload` exactly; all crypto

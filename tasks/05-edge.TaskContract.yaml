@@ -1,0 +1,33 @@
+# Task contract template for the 05-edge landing (saas-baseline-tracking BT1).
+# Unbound to a key on purpose: `orun task create --contract` seals and
+# attaches it to the key the allocator issues. gates: [] is a DECLARATION —
+# merge alone finishes this task; the main convergence is the gate the flow
+# watches, not one the plane observes as a PR check.
+#
+# The bootstrap's second wave in one landing: every worker that binds to
+# another gets its bindings back (04-workers-restore until it was folded in
+# here), the API edge goes up in front of the fleet, and the console beside
+# it (06-console). The workers are listed because the retouch marker is what
+# redeploys them when a redo finds the bindings already restored.
+apiVersion: orun.io/v1
+kind: TaskContract
+spec:
+  goal: The fleet is wired with every service binding, and the API edge and the web console are live on stage and prod
+  affects:
+    - api-edge
+    - web-console-next
+    - billing-worker
+    - config-worker
+    - events-worker
+    - identity-worker
+    - integrations-worker
+    - membership-worker
+    - metering-worker
+    - notifications-worker
+    - projects-worker
+    - webhooks-worker
+  doneWhen:
+    - every service binding restored and the fleet converged again
+    - api-edge /health 200 on stage and prod
+    - console live on stage and prod
+  gates: []

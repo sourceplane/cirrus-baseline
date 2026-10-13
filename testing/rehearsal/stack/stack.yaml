@@ -1,0 +1,18 @@
+apiVersion: orun.io/v1
+kind: Stack
+metadata:
+  name: cirrus-rehearsal-stack
+  title: Cirrus baseline rehearsal stack
+  # Versioned, but never published. `kind: dir` resolves this from the
+  # working tree, so the commit IS the version — there is no artifact whose
+  # tag could drift from what this repository reviewed.
+  version: 0.1.0
+  description: >-
+    One composition, used by one component, in one repository: the end-to-end
+    bootstrap rehearsal. Kept here rather than in sourceplane/stack-tectonic
+    because a composition with a single caller does not need a release process,
+    and publishing it would add a version to bump and a registry to be down.
+  owner: sourceplane
+  tags:
+    - baseline
+    - rehearsal
