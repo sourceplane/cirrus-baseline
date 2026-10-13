@@ -48,7 +48,10 @@
         }
       ],
       "services": [
-        // @cycle-break:notifications-worker->events-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiRVZFTlRTX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtZXZlbnRzLXdvcmtlci1zdGFnZSIKICAgICAgICB9
+        {
+          "binding": "EVENTS_WORKER",
+          "service": "cirrus-baseline-events-worker-stage"
+        }
       ]
     },
     "prod": {
@@ -73,7 +76,10 @@
         }
       ],
       "services": [
-        // @cycle-break:notifications-worker->events-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiRVZFTlRTX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtZXZlbnRzLXdvcmtlci1wcm9kIgogICAgICAgIH0=
+        {
+          "binding": "EVENTS_WORKER",
+          "service": "cirrus-baseline-events-worker-prod"
+        }
       ]
     }
   }

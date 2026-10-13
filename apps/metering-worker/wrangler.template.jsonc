@@ -33,8 +33,14 @@
         }
       ],
       "services": [
-        // @cycle-break:metering-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXN0YWdlIgogICAgICAgIH0s
-        // @cycle-break:metering-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1zdGFnZSIKICAgICAgICB9
+        {
+          "binding": "MEMBERSHIP_WORKER",
+          "service": "cirrus-baseline-membership-worker-stage"
+        },
+        {
+          "binding": "POLICY_WORKER",
+          "service": "cirrus-baseline-policy-worker-stage"
+        }
       ]
     },
     "prod": {
@@ -50,8 +56,14 @@
         }
       ],
       "services": [
-        // @cycle-break:metering-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXByb2QiCiAgICAgICAgfSw=
-        // @cycle-break:metering-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1wcm9kIgogICAgICAgIH0=
+        {
+          "binding": "MEMBERSHIP_WORKER",
+          "service": "cirrus-baseline-membership-worker-prod"
+        },
+        {
+          "binding": "POLICY_WORKER",
+          "service": "cirrus-baseline-policy-worker-prod"
+        }
       ]
     }
   }

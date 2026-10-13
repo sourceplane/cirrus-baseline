@@ -39,9 +39,18 @@
         }
       ],
       "services": [
-        // @cycle-break:membership-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1zdGFnZSIKICAgICAgICB9LA==
-        // @cycle-break:membership-worker->billing-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiQklMTElOR19XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLWJpbGxpbmctd29ya2VyLXN0YWdlIgogICAgICAgIH0s
-        // @cycle-break:membership-worker->notifications-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTk9USUZJQ0FUSU9OU19XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW5vdGlmaWNhdGlvbnMtd29ya2VyLXN0YWdlIgogICAgICAgIH0=
+        {
+          "binding": "POLICY_WORKER",
+          "service": "cirrus-baseline-policy-worker-stage"
+        },
+        {
+          "binding": "BILLING_WORKER",
+          "service": "cirrus-baseline-billing-worker-stage"
+        },
+        {
+          "binding": "NOTIFICATIONS_WORKER",
+          "service": "cirrus-baseline-notifications-worker-stage"
+        }
       ]
     },
     "prod": {
@@ -59,9 +68,18 @@
         }
       ],
       "services": [
-        // @cycle-break:membership-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1wcm9kIgogICAgICAgIH0s
-        // @cycle-break:membership-worker->billing-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiQklMTElOR19XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLWJpbGxpbmctd29ya2VyLXByb2QiCiAgICAgICAgfSw=
-        // @cycle-break:membership-worker->notifications-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTk9USUZJQ0FUSU9OU19XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW5vdGlmaWNhdGlvbnMtd29ya2VyLXByb2QiCiAgICAgICAgfQ==
+        {
+          "binding": "POLICY_WORKER",
+          "service": "cirrus-baseline-policy-worker-prod"
+        },
+        {
+          "binding": "BILLING_WORKER",
+          "service": "cirrus-baseline-billing-worker-prod"
+        },
+        {
+          "binding": "NOTIFICATIONS_WORKER",
+          "service": "cirrus-baseline-notifications-worker-prod"
+        }
       ]
     }
   }

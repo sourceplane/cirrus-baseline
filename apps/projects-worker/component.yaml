@@ -76,4 +76,4 @@ spec:
     surface: projects
     runtime: cloudflare
 # ci: re-trigger deploy (batch B — membership-dependents, 20260622T140838Z)
-# orun: redeploy 04-workers 20261013T142841Z
+# orun: redeploy 05-edge 20261013T143837Z
