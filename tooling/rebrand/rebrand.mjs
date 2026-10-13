@@ -36,6 +36,8 @@
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ── Inputs ─────────────────────────────────────────────────────
 
@@ -95,7 +97,20 @@ if (valuesPath) {
 // the one place that says what this tree is called, and the rules below read
 // it. Nothing here is derived from the git remote or the directory name, both
 // of which lie after a fork.
-const BASELINE_IDENTITY_FILE = ".baseline/identity.json";
+// RESOLVED AGAINST THIS SCRIPT, NOT THE WORKING DIRECTORY. The rebrand runs
+// with its cwd set to the PRODUCT being branded, while the identity it renames
+// FROM belongs to the BASELINE — and a product does not carry `.baseline/`,
+// because no module places it. Read from the cwd, the file was simply absent
+// during every real placement and the tool fell back to the defaults, i.e. to
+// cirrus's identity. The product then came out with
+// `api.acme-cloud-baseline.dev`: `cirrus` had been renamed inside
+// `cirrus-baseline.dev` and the `-baseline` suffix left behind. The phase
+// hooks invoke this as `node {{ .baseline.dir }}/tooling/rebrand/rebrand.mjs`,
+// so the script's own path is the one thing that always points at the baseline.
+// `--baseline-identity <file>` overrides it.
+const BASELINE_IDENTITY_FILE =
+  arg("baseline-identity") ??
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", ".baseline", "identity.json");
 const BASELINE_DEFAULTS = {
   slug: "cirrus",
   pascal: "Cirrus",
