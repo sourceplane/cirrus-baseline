@@ -125,7 +125,9 @@ environments:
       triggerRefs:
         - github-pull-request
         - github-push-main
-    # @promotion-deferred:ICAgIHByb21vdGlvbjoKICAgICAgZGVwZW5kc09uOgogICAgICAgIC0gZW52aXJvbm1lbnQ6IHN0YWdl (tooling/bootstrap/promotion.mjs --restore puts it back)
+    promotion:
+      dependsOn:
+        - environment: stage
     parameterDefaults:
       terraform:
         lane: verify
