@@ -19,12 +19,15 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  # A lane of several jobs posts one check run per job, named by the job's
+  # check title, so branch protection sees the same names as before lanes.
+  checks: write
 
 jobs:
   plan:
     runs-on: ubuntu-latest
     outputs:
-      job-matrix: ${{ steps.matrix.outputs.job-matrix }}
+      lane-matrix: ${{ steps.matrix.outputs.lane-matrix }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -49,9 +52,14 @@ jobs:
           )
 
           orun plan "${plan_args[@]}"
+      # One matrix entry per LANE (execution.lanes in intent.yaml). A plan
+      # without lanes gets one per job, exactly the old matrix, and
+      # `orun run --lane <job id>` on it is `--job <job id>`.
       - id: matrix
         run: |
-         echo "job-matrix=$(jq -c '[.jobs[] | {"job-id": .id, "job-name": .checkName}]' plan.json)" >> "$GITHUB_OUTPUT"
+         echo "lane-matrix=$(jq -c 'if ((.lanes // []) | length) > 0
+           then [.lanes[] | {"lane": .id, "name": .name}]
+           else [.jobs[] | {"lane": .id, "name": .checkName}] end' plan.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           name: orun-plan
@@ -72,21 +80,19 @@ jobs:
     # PR pass was the same work twice, and a third of a bootstrap's wall-clock.
     # Every other pull request runs its lanes exactly as before.
     if: >-
-      ${{ needs.plan.outputs.job-matrix != '[]' && needs.plan.outputs.job-matrix != ''
+      ${{ needs.plan.outputs.lane-matrix != '[]' && needs.plan.outputs.lane-matrix != ''
           && !(github.event_name == 'pull_request' && startsWith(github.head_ref, 'orun/BASE-')) }}
     strategy:
       fail-fast: false
       # Stagger the fan-out: every lane hits the lease-bound resolve at job
-      # start, and an unbounded herd (fifty lanes) saturated it twice. Eight
-      # was that cap, and it became the bottleneck once the fleet's deploys
-      # stopped waiting on each other (dependencyMode: advisory on the peer
-      # edges): a waiting lane holds its slot, and lanes with nothing to wait
-      # for started up to ninety seconds late. Sixteen keeps the herd well
-      # under the size that saturated it.
+      # start, and an unbounded herd (fifty lanes) saturated it twice. Sixteen
+      # keeps the herd well under that, and equals execution.lanes.maxLanes,
+      # so a packed plan starts every lane at once. Inside a lane a job that
+      # waits on another lane holds no slot.
       max-parallel: 16
       matrix:
-        include: ${{ fromJson(needs.plan.outputs.job-matrix) }}
-    name: ${{ matrix.job-name }}
+        include: ${{ fromJson(needs.plan.outputs.lane-matrix) }}
+    name: ${{ matrix.name }}
     env:
       # One pnpm store for every lane, restored below. Each lane installs the
       # whole workspace with --frozen-lockfile; without this every one of them
@@ -121,9 +127,10 @@ jobs:
       # --failed` then RESUMES the same orun execution — jobs that succeeded in
       # a prior attempt stay completed, so re-run lanes' cross-job dependencies
       # are already satisfied instead of waiting forever on lanes that are not
-      # re-running (the partial-rerun deadlock). --retry re-opens THIS lane's
-      # job when it terminally failed in a prior attempt (no-op on first
-      # attempts) — together they make `gh run rerun --failed` a true resume.
+      # re-running (the partial-rerun deadlock). --retry re-opens THIS
+      # lane's failed jobs when they terminally failed in a prior attempt
+      # (no-op on first attempts); its completed jobs stay completed — together
+      # they make `gh run rerun --failed` a true resume.
       - run: |
           # --retry only on re-run attempts: on a fresh attempt a failed
           # upstream is a genuine failure and dependents must fail fast; on a
@@ -159,7 +166,7 @@ jobs:
             --plan plan.json \
             --runner github-actions \
             $state_flag \
-            --job "${{ matrix.job-id }}" \
+            --lane "${{ matrix.lane }}" \
             --exec-id "${{ github.run_id }}" \
             $retry_flag
         env:
