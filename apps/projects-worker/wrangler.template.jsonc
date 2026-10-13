@@ -30,9 +30,18 @@
         }
       ],
       "services": [
-        // @cycle-break:projects-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXN0YWdlIgogICAgICAgIH0s
-        // @cycle-break+nl:projects-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1zdGFnZSIKICAgICAgICB9
-// @cycle-break:projects-worker->billing-worker:LAogICAgICAgIHsKICAgICAgICAgICJiaW5kaW5nIjogIkJJTExJTkdfV09SS0VSIiwKICAgICAgICAgICJzZXJ2aWNlIjogImNpcnJ1cy1iYXNlbGluZS1iaWxsaW5nLXdvcmtlci1zdGFnZSIKICAgICAgICB9
+        {
+          "binding": "MEMBERSHIP_WORKER",
+          "service": "cirrus-baseline-membership-worker-stage"
+        },
+        {
+          "binding": "POLICY_WORKER",
+          "service": "cirrus-baseline-policy-worker-stage"
+        },
+        {
+          "binding": "BILLING_WORKER",
+          "service": "cirrus-baseline-billing-worker-stage"
+        }
       ]
     },
     "prod": {
@@ -48,9 +57,18 @@
         }
       ],
       "services": [
-        // @cycle-break:projects-worker->membership-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiTUVNQkVSU0hJUF9XT1JLRVIiLAogICAgICAgICAgInNlcnZpY2UiOiAiY2lycnVzLWJhc2VsaW5lLW1lbWJlcnNoaXAtd29ya2VyLXByb2QiCiAgICAgICAgfSw=
-        // @cycle-break+nl:projects-worker->policy-worker:ewogICAgICAgICAgImJpbmRpbmciOiAiUE9MSUNZX1dPUktFUiIsCiAgICAgICAgICAic2VydmljZSI6ICJjaXJydXMtYmFzZWxpbmUtcG9saWN5LXdvcmtlci1wcm9kIgogICAgICAgIH0=
-// @cycle-break:projects-worker->billing-worker:LAogICAgICAgIHsKICAgICAgICAgICJiaW5kaW5nIjogIkJJTExJTkdfV09SS0VSIiwKICAgICAgICAgICJzZXJ2aWNlIjogImNpcnJ1cy1iYXNlbGluZS1iaWxsaW5nLXdvcmtlci1wcm9kIgogICAgICAgIH0=
+        {
+          "binding": "MEMBERSHIP_WORKER",
+          "service": "cirrus-baseline-membership-worker-prod"
+        },
+        {
+          "binding": "POLICY_WORKER",
+          "service": "cirrus-baseline-policy-worker-prod"
+        },
+        {
+          "binding": "BILLING_WORKER",
+          "service": "cirrus-baseline-billing-worker-prod"
+        }
       ]
     }
   }
