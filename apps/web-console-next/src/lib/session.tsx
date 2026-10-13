@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { cirrusbaseline } from "@saas/sdk";
+import type { CirrusBaseline } from "@saas/sdk";
 import {
   TARGETS,
   DEPLOY_ENV,
@@ -29,7 +29,7 @@ export function readStoredToken(): string | null {
 }
 
 interface SessionCtx {
-  client: cirrusbaseline;
+  client: CirrusBaseline;
   target: ApiTarget;
   token: string | null;
   setToken: (t: string | null) => void;

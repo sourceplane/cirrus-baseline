@@ -17,7 +17,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
-  cirrusbaseline,
+  CirrusBaseline,
   PublicWebhookDeliveryAttempt,
   ReplayWebhookDeliveryResponse,
 } from "@saas/sdk";
@@ -109,7 +109,7 @@ async function withHarness(
 
     const fakeSdk = {
       webhooks: { replayDelivery },
-    } as unknown as cirrusbaseline;
+    } as unknown as CirrusBaseline;
 
     const runArgv = (argv: string[]): Promise<{ exitCode: number }> =>
       runCli(argv, {

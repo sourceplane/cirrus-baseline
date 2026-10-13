@@ -1,0 +1,160 @@
+name: Baseline tag
+
+# NO `baseline-vN` IS CUT FROM AN UNPROVEN TREE (saas-bootstrap-engine BE6).
+#
+# A baseline tag is what the platform's registry resolves and what every
+# product bootstrapped from this repository is built out of. One cut from a
+# commit whose tier-3 rehearsal never ran publishes a bootstrap nobody has
+# watched work, to people who find out an hour in.
+#
+# The rule itself lives in `testing/tag-gate.sh`, which is a script rather than
+# forty lines of YAML because a rule that cannot be run on a laptop is a rule
+# nobody checks before they need it. `testing/tag-gate.test.sh` drives it
+# against a fake GitHub API.
+#
+# ─── TWO JOBS, AND WHY BOTH ─────────────────────────────────────────────
+#
+# `cut` is the door: it verifies first and creates the tag only if the commit
+# is proven. Used as intended, an unproven tag cannot exist.
+#
+# `verify` is the backstop, on `push: tags`. It cannot un-push a tag — a tag is
+# created and THEN the event fires, and GitHub's required status checks apply
+# to branches, not tags — but it turns a bypass into a red check within a
+# minute instead of a discovery a release later.
+#
+# The backstop deliberately does NOT run after `cut`. GitHub does not trigger
+# workflows from events made with the default GITHUB_TOKEN, so a tag this
+# workflow creates fires nothing. That is correct rather than a gap: `cut`
+# already verified, and `verify` exists for the tags it did not create.
+#
+# ─── WHAT MAKES THE REFUSAL BINDING ─────────────────────────────────────
+#
+# One repository setting, which no file in this repo can make: a ruleset on tag
+# `baseline-v*` with "Restrict creations", leaving this workflow's token the
+# only creator. Without it, `cut` is the paved road and `verify` is the alarm.
+# See BOOTSTRAP.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The tag to cut, e.g. baseline-v25."
+        required: true
+        type: string
+      ref:
+        description: "Branch, tag or sha to cut it from. Defaults to main."
+        required: false
+        default: main
+        type: string
+  push:
+    tags:
+      - "baseline-v*"
+
+concurrency:
+  group: baseline-tag
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  cut:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history: the ref being cut from may be any commit, and a
+          # shallow clone cannot resolve one it did not fetch.
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+
+      - name: the version must look like a baseline tag
+        run: |
+          set -euo pipefail
+          # Refused here rather than by the API, because the API's error for a
+          # malformed ref says nothing about the convention it broke — and a
+          # tag that does not match `baseline-v*` is invisible to the backstop
+          # above, which is the one shape of mistake that disables the gate.
+          case "${{ inputs.version }}" in
+            baseline-v[0-9]*) ;;
+            *) echo "✕ '${{ inputs.version }}' is not a baseline-vN tag" >&2; exit 1 ;;
+          esac
+
+      - name: resolve the commit
+        id: commit
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Cutting ${{ inputs.version }} from ${{ inputs.ref }} = $sha"
+
+      - name: the tag must not already exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/ref/tags/${{ inputs.version }}")"
+          if [ "$code" = "200" ]; then
+            echo "✕ ${{ inputs.version }} already exists. A baseline tag is never moved:" >&2
+            echo "  products resolve it, and repointing one changes what a build that" >&2
+            echo "  already shipped was made of. Cut the next number." >&2
+            exit 1
+          fi
+          # Anything other than 200 or 404 means the question was not answered,
+          # and "it probably does not exist" is not a thing to guess about a
+          # tag that is about to be created.
+          [ "$code" = "404" ] || { echo "✕ could not check for the tag (HTTP $code)" >&2; exit 1; }
+
+      - name: the commit must have a green tier-3 rehearsal
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash testing/tag-gate.sh \
+            --repo "${GITHUB_REPOSITORY}" \
+            --sha "${{ steps.commit.outputs.sha }}"
+
+      - name: cut the tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -sS -X POST --fail-with-body \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/refs" \
+            -d "$(printf '{"ref":"refs/tags/%s","sha":"%s"}' \
+                  "${{ inputs.version }}" "${{ steps.commit.outputs.sha }}")"
+          echo ""
+          echo "✓ ${{ inputs.version }} → ${{ steps.commit.outputs.sha }}"
+          echo "  Next: \`orun baseline publish\` opens the registry pull request."
+
+  # The backstop. A tag that appeared any other way is checked anyway, and the
+  # check is red if the commit was never proven. It cannot undo the tag; it
+  # makes the bypass impossible to miss.
+  verify:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: this tag's commit must have a green tier-3 rehearsal
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "${GITHUB_REF_NAME} points at ${GITHUB_SHA}"
+          if ! bash testing/tag-gate.sh --repo "${GITHUB_REPOSITORY}" --sha "${GITHUB_SHA}"; then
+            echo "" >&2
+            echo "  This tag was NOT cut through the Baseline tag workflow, and the" >&2
+            echo "  commit it points at has no green tier-3 rehearsal. Either run the" >&2
+            echo "  rehearsal on this commit, or delete the tag and cut it properly:" >&2
+            echo "    gh workflow run tag.yml -f version=${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi

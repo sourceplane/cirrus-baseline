@@ -3,4 +3,4 @@
 // Do not add behavior — values only.
 
 /** User-Agent presented on outgoing webhook deliveries. */
-export const WEBHOOK_USER_AGENT = "cirrusbaseline-Webhooks/1.0";
+export const WEBHOOK_USER_AGENT = "CirrusBaseline-Webhooks/1.0";

@@ -1,6 +1,6 @@
 // `cirrus-baseline whoami` — read token + cached context, validate via SDK.
 
-import { cirrusbaseline } from "@saas/sdk";
+import { CirrusBaseline } from "@saas/sdk";
 
 import type { OutputMode } from "../output/index.js";
 import { formatOutput } from "../output/index.js";
@@ -13,8 +13,8 @@ export interface WhoamiInput {
   readonly tokenStore: TokenStore;
   readonly contextStore: ContextStore;
   readonly stdout: (line: string) => void;
-  /** SDK factory override for tests. Defaults to constructing `cirrusbaseline`. */
-  readonly sdkFactory?: (baseUrl: string, token: string) => cirrusbaseline;
+  /** SDK factory override for tests. Defaults to constructing `CirrusBaseline`. */
+  readonly sdkFactory?: (baseUrl: string, token: string) => CirrusBaseline;
 }
 
 export interface WhoamiOutcome {
@@ -29,7 +29,7 @@ export async function whoamiFlow(input: WhoamiInput): Promise<WhoamiOutcome> {
 
   const client =
     input.sdkFactory?.(cred.apiUrl, cred.token) ??
-    new cirrusbaseline({
+    new CirrusBaseline({
       baseUrl: cred.apiUrl,
       auth: { kind: "bearer", token: cred.token },
     });

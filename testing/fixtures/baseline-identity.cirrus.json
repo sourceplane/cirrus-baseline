@@ -1,0 +1,8 @@
+{
+  "_comment": "THE IDENTITY testing/rebrand.test.sh PINS ITS FIXTURES TO. That suite tests the rename ENGINE — held values, word boundaries, the workspace segment of a secret ref, idempotence across phases — and its fixtures spell out one baseline's identity literally (secret://lumen/cirrus/..., cirrus.app, Cirrus-Webhooks, and the glued `cirrus.appcirrus` boundary case). Pinning it here keeps the suite deterministic and independent of whichever repository hosts the factory: passed as --baseline-identity, it no longer matters what this tree's own .baseline/identity.json says. These are cirrus's values because the fixtures were written against them.",
+  "slug": "cirrus",
+  "pascal": "Cirrus",
+  "productName": "Cirrus",
+  "domain": "cirrus.app",
+  "subdomain": "rahulvarghesepullely"
+}

@@ -1,0 +1,29 @@
+# Task contract template for the 02-foundation landing (saas-baseline-tracking BT1).
+# Unbound to a key on purpose: `orun task create --contract` seals and
+# attaches it to the key the allocator issues. gates: [] is a DECLARATION —
+# merge alone finishes this task; the main convergence is the gate the flow
+# watches, not one the plane observes as a PR check.
+#
+# One landing for two units of work that never depended on each other: the
+# shared packages and the D1/KV data plane (03-infrastructure until the
+# bootstrap folded it in here).
+apiVersion: orun.io/v1
+kind: TaskContract
+spec:
+  goal: The 13 shared packages everything later builds on land and build green, and the data plane — D1 and KV — is provisioned on stage and prod with its outputs published
+  affects:
+    - cli
+    - contracts
+    - db
+    - notifications-client
+    - policy-engine
+    - sdk
+    - shared
+    - testing
+    - webhook-verifier
+    - cloudflare-d1
+    - cloudflare-kv
+  doneWhen:
+    - main convergence green (turbo builds + tests, Terraform applies)
+    - WIRING_CLOUDFLARE_D1 and WIRING_CLOUDFLARE_KV published on stage and prod
+  gates: []

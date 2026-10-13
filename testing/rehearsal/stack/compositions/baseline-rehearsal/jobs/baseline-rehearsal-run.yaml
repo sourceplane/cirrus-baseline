@@ -1,0 +1,187 @@
+apiVersion: sourceplane.io/v1alpha1
+kind: JobTemplate
+metadata:
+  name: baseline-rehearsal-run
+spec:
+  description: Bootstrap a throwaway product from a published baseline, assert it came up, and destroy it
+  runsOn: ubuntu-22.04
+  # An hour for the build plus room for the two worker landings and teardown.
+  # docs/phases/TIMINGS.md budgets ~50-65 minutes; a rehearsal that times out
+  # at the budget tells you nothing about whether it would have finished.
+  timeout: 100m
+  # NEVER retried. A rehearsal creates real cloud resources, and a second
+  # attempt on top of a half-built first one is not a retry — it is a
+  # different test, against a tree the first attempt already changed.
+  retries: 0
+
+  labels:
+    scope: baseline-rehearsal
+
+  capabilities:
+    - baseline-rehearsal.setup-node
+    - baseline-rehearsal.setup-orun
+    - baseline-rehearsal.guard
+    - baseline-rehearsal.build
+    - baseline-rehearsal.assert
+    - baseline-rehearsal.timings
+    - baseline-rehearsal.teardown
+    - baseline-rehearsal.verdict
+
+  steps:
+    - id: setup-node
+      name: setup-node
+      capability: baseline-rehearsal.setup-node
+      use: actions/setup-node@v4
+      with:
+        node-version: "{{.parameters.nodeVersion}}"
+
+    - id: setup-orun
+      name: setup-orun
+      capability: baseline-rehearsal.setup-orun
+      use: sourceplane/orun-action@v1.2.0
+      with:
+        version: "{{.parameters.orunVersion}}"
+
+    # ── THE GUARD, BEFORE ANYTHING IS CREATED ────────────────────────────
+    #
+    # Everything downstream names resources after RUN_PREFIX, and the
+    # teardown deletes by that prefix. A malformed one is therefore not a
+    # cosmetic problem: it is either a build whose resources the teardown
+    # cannot find, or a teardown whose query is wider than this run. Both
+    # are caught here, before the first API call, by the same rule
+    # testing/teardown.sh enforces — at least 12 characters, containing a
+    # digit — asserted with the script's own --prefix validation rather than
+    # a second copy of the rule.
+    - id: guard
+      name: guard
+      capability: baseline-rehearsal.guard
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${ORUN_TOKEN:?the rehearsal workspace key did not resolve}"
+        : "${CLOUDFLARE_API_TOKEN:?the rehearsal Cloudflare token did not resolve}"
+        : "${CLOUDFLARE_ACCOUNT_ID:?the rehearsal Cloudflare account id did not resolve}"
+        : "${ORUN_REHEARSAL_WORKSPACE:?no rehearsal workspace — the lane must supply one, there is no default}"
+        echo "RUN_PREFIX=scratch-${GITHUB_RUN_ID:-$(date -u +%s)}" >> "$GITHUB_ENV"
+        echo "STATUS_FILE=${RUNNER_TEMP:-/tmp}/rehearsal.status" >> "$GITHUB_ENV"
+        : > "${RUNNER_TEMP:-/tmp}/rehearsal.status"
+      onFailure: stop
+
+    # ── THE BUILD ────────────────────────────────────────────────────────
+    #
+    # `--local` builds from the REGISTRY'S published tag, not from this
+    # working tree: a rehearsal that built the branch would prove the branch
+    # works and say nothing about what a customer gets. `--run-hooks` is what
+    # makes it a bootstrap rather than a file copy.
+    #
+    # onFailure: continue, HERE AND IN EVERY STEP UNTIL TEARDOWN. orun job
+    # steps are `stop` or `continue` and have no always() — so a failing
+    # build with `stop` would skip the teardown and leak the fleet it had
+    # just created. Each step records its verdict instead, teardown always
+    # runs, and the final step re-raises. That is the whole reason this job
+    # looks like this.
+    - id: build
+      name: build
+      capability: baseline-rehearsal.build
+      shell: bash
+      run: |
+        set -uo pipefail
+        out="${RUNNER_TEMP:-/tmp}/product"
+        events="${RUNNER_TEMP:-/tmp}/events.jsonl"
+        echo "EVENTS=$events" >> "$GITHUB_ENV"
+        echo "PRODUCT_OUT=$out" >> "$GITHUB_ENV"
+        orun baseline new "{{.parameters.baselineId}}" \
+          --local \
+          --out "$out" \
+          --workspace "$ORUN_REHEARSAL_WORKSPACE" \
+          --run-hooks --resume --progress json \
+          --set reponame="$RUN_PREFIX" \
+          --set productname="Rehearsal $RUN_PREFIX" \
+          --set productdomain="rehearsal.invalid" \
+          --set githuborg="{{.parameters.githuborg}}" \
+          --set orunWorkspace="$ORUN_REHEARSAL_WORKSPACE" \
+          | tee "$events"
+        echo "build=${PIPESTATUS[0]}" >> "$STATUS_FILE"
+      onFailure: continue
+
+    # ── THE ASSERTIONS ───────────────────────────────────────────────────
+    #
+    # Against the EVENT STREAM the build emitted, which is the engine's own
+    # account of what happened rather than a re-derivation of it. Every phase
+    # must be PLACED — `done` OR `drifted` — because a branded product's
+    # phases derive as drifted permanently and "every phase done" is
+    # unsatisfiable (open question 12).
+    - id: assert
+      name: assert
+      capability: baseline-rehearsal.assert
+      shell: bash
+      run: |
+        set -uo pipefail
+        bash testing/rehearsal/assert.sh "$EVENTS" "$PRODUCT_OUT"
+        echo "assert=$?" >> "$STATUS_FILE"
+      onFailure: continue
+
+    # Measurements, which is the half of BE6's done-when that no amount of
+    # YAML produces. Written as a run artifact; promoting them into
+    # docs/phases/TIMINGS.md is a commit a person makes from a green run.
+    - id: timings
+      name: timings
+      capability: baseline-rehearsal.timings
+      shell: bash
+      run: |
+        set -uo pipefail
+        bash testing/rehearsal/timings.sh "$EVENTS" > "${RUNNER_TEMP:-/tmp}/timings.md" || true
+        cat "${RUNNER_TEMP:-/tmp}/timings.md" || true
+      onFailure: continue
+
+    # ── TEARDOWN, WHICH RUNS WHATEVER HAPPENED ABOVE ─────────────────────
+    #
+    # The only step that must not be skipped. One green run leaves 14 workers
+    # on two environments plus the d1 and kv roots on both rungs — on the
+    # order of thirty paid resources — and a FAILED run leaves however many
+    # it got through, which is the case a `stop` would have skipped teardown
+    # for. Deletes by name prefix; the prefix was validated in `guard`.
+    - id: teardown
+      name: teardown
+      capability: baseline-rehearsal.teardown
+      shell: bash
+      run: |
+        set -uo pipefail
+        bash testing/teardown.sh \
+          --prefix "$RUN_PREFIX" \
+          --account "$CLOUDFLARE_ACCOUNT_ID" \
+          --apply
+        echo "teardown=$?" >> "$STATUS_FILE"
+      onFailure: continue
+
+    # ── AND THE VERDICT ──────────────────────────────────────────────────
+    #
+    # Re-raises what the continues swallowed. Without this the job is green
+    # whatever happened, which is the exact failure mode the `continue`s
+    # would otherwise introduce — so it fails closed: a status file missing a
+    # step is a step that never ran, and that is a failure too.
+    - id: verdict
+      name: verdict
+      capability: baseline-rehearsal.verdict
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "── what happened"
+        cat "$STATUS_FILE" || true
+        failed=0
+        for step in build assert teardown; do
+          line="$(grep "^${step}=" "$STATUS_FILE" 2>/dev/null | tail -1 || true)"
+          if [ -z "$line" ]; then
+            echo "✕ ${step} never reported — treating as failed" >&2
+            failed=1
+            continue
+          fi
+          code="${line#*=}"
+          if [ "$code" != "0" ]; then
+            echo "✕ ${step} exited ${code}" >&2
+            failed=1
+          fi
+        done
+        [ "$failed" -eq 0 ] || exit 1
+        echo "✓ rehearsal green: built, asserted, and torn down"
+      onFailure: stop

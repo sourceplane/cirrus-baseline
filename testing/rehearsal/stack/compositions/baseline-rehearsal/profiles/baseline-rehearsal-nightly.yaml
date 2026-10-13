@@ -1,0 +1,23 @@
+apiVersion: sourceplane.io/v1alpha1
+kind: ExecutionProfile
+metadata:
+  name: baseline-rehearsal-nightly
+spec:
+  description: The whole rehearsal — build, assert, measure, destroy, and report what happened
+
+  jobs:
+    rehearse:
+      # EVERY capability, deliberately listed rather than defaulted. A profile
+      # that omitted `teardown` would be a lane that creates thirty paid
+      # Cloudflare resources a night and destroys none of them, and the
+      # omission would look exactly like a shorter list. `verdict` is here for
+      # the same reason: without it the job is green whatever happened.
+      includeCapabilities:
+        - baseline-rehearsal.setup-node
+        - baseline-rehearsal.setup-orun
+        - baseline-rehearsal.guard
+        - baseline-rehearsal.build
+        - baseline-rehearsal.assert
+        - baseline-rehearsal.timings
+        - baseline-rehearsal.teardown
+        - baseline-rehearsal.verdict

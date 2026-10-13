@@ -1,7 +1,7 @@
 // Tests for Task 0115 — `cirrus-baseline webhook disable` CLI subcommand.
 //
 // The harness injects a *fake SDK* via `sdkFactory` rather than going
-// through the real `cirrusbaseline` client + a captured-fetch — the
+// through the real `CirrusBaseline` client + a captured-fetch — the
 // command is a thin one-call adapter over `sdk.webhooks.disableEndpoint`,
 // so direct SDK-layer injection lets us assert the call shape (orgId,
 // endpointId, body, options) without modelling the request envelope.
@@ -18,7 +18,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
-  cirrusbaseline,
+  CirrusBaseline,
   PublicWebhookEndpoint,
   DisableWebhookEndpointResponse,
 } from "@saas/sdk";
@@ -115,7 +115,7 @@ async function withHarness(
 
     const fakeSdk = {
       webhooks: { disableEndpoint },
-    } as unknown as cirrusbaseline;
+    } as unknown as CirrusBaseline;
 
     const runArgv = (argv: string[]): Promise<{ exitCode: number }> =>
       runCli(argv, {

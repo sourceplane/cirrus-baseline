@@ -1,10 +1,10 @@
-// Base HTTP transport for the cirrusbaseline SDK.
+// Base HTTP transport for the CirrusBaseline SDK.
 //
 // Goals:
 // - Runtime-agnostic: native `fetch`, native `crypto.randomUUID`, no `node:*`.
 // - Stripe-style ergonomics: `Idempotency-Key` is a per-request option,
 //   request-id auto-generated when caller omits it, abort signal passthrough.
-// - Typed errors: every non-2xx response is decoded into a `cirrusbaselineError`
+// - Typed errors: every non-2xx response is decoded into a `CirrusBaselineError`
 //   subclass via `decodeError`.
 // - Forward-compatible envelope: success responses are `{ data: T, meta: {...} }`
 //   today; the transport only requires the `data` field to exist.
@@ -17,7 +17,7 @@ export type AuthOption =
 
 export interface ClientOptions {
   /**
-   * Base URL of the cirrusbaseline api-edge worker, e.g.
+   * Base URL of the CirrusBaseline api-edge worker, e.g.
    * `https://api.cirrus-baseline.dev`. Trailing slash is stripped.
    */
   baseUrl: string;
@@ -68,7 +68,7 @@ interface PerformInput {
  *
  * The transport is intentionally exported so power users can drive it without
  * the high-level resource namespaces, but the public stable surface is
- * `cirrusbaseline` (the client class wired up in `index.ts`).
+ * `CirrusBaseline` (the client class wired up in `index.ts`).
  */
 export class Transport {
   readonly baseUrl: string;
@@ -83,7 +83,7 @@ export class Transport {
     const fetchImpl = options.fetch ?? globalThis.fetch;
     if (typeof fetchImpl !== "function") {
       throw new TypeError(
-        "cirrusbaseline SDK requires a fetch implementation. Pass `fetch` in options on platforms without a global.",
+        "CirrusBaseline SDK requires a fetch implementation. Pass `fetch` in options on platforms without a global.",
       );
     }
     this.fetchImpl = fetchImpl.bind(globalThis);
@@ -214,7 +214,7 @@ export function generateRequestId(): string {
     return `req_${hex}`;
   }
   throw new Error(
-    "cirrusbaseline SDK requires the Web Crypto API (globalThis.crypto). No source of randomness was found.",
+    "CirrusBaseline SDK requires the Web Crypto API (globalThis.crypto). No source of randomness was found.",
   );
 }
 

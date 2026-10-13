@@ -7,7 +7,7 @@
  * personal workspace. See specs/profiles/solo-m0.md.
  *
  * Sourced from `NEXT_PUBLIC_SOLO_MODE`, inlined at build time (next.config.mjs
- * defaults it to "true" for this cirrusbaseline instance). Set it to "false" and rebuild
+ * defaults it to "true" for this CirrusBaseline instance). Set it to "false" and rebuild
  * to restore the full multi-tenant baseline — nothing here is removed, only
  * gated, so the switch is fully reversible.
  */

@@ -12,17 +12,17 @@ Exchange it for a short-lived, repo-scoped installation token whenever you
 need to call GitHub — post a check run, read a file, set a deploy status:
 
 ```ts
-import { cirrusbaseline } from "@saas/sdk";
+import { CirrusBaseline } from "@saas/sdk";
 import { Octokit } from "@octokit/rest";
 
-const cirrusbaseline = new cirrusbaseline({
+const CirrusBaseline = new CirrusBaseline({
   baseUrl: process.env.CIRRUS_BASELINE_API_URL!,
   token: process.env.CIRRUS_BASELINE_API_KEY!, // service-principal key
 });
 
 // Mint a token scoped to exactly the repos + permissions you need.
 // TTL ≤ 1h; mint per task and let it expire — never store it.
-const { token } = await cirrusbaseline.integrations.issueGithubToken(ORG_ID, {
+const { token } = await CirrusBaseline.integrations.issueGithubToken(ORG_ID, {
   repositories: ["777001"],                 // linked provider repo ids
   permissions: { checks: "write" },         // ⊆ the App's grant
 });
