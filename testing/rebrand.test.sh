@@ -89,6 +89,29 @@ check "a slug given as the workspace is kept" \
   "{$base,\"orunWorkspace\":\"acme-space\"}" apps/w/component.yaml "$ref" \
   "TOKEN: secret://acme-space/altocumulus/stage/CLOUDFLARE_API_TOKEN"
 
+echo "── rebrand: a baseline whose own refs name a ws_ id"
+# cirrus-baseline was promoted from a product built in workspace ws_KWQ45Z6M,
+# so its refs read `secret://ws_KWQ45Z6M/cirrus-baseline/…`. The workspace
+# rule matched only a lowercase slug there, so it never fired; the repo-slug
+# rule then renamed the project alone and every product's refs still named
+# ws_KWQ45Z6M. 02-foundation's terraform failed on the first resolve:
+#   Ref workspace "ws_KWQ45Z6M" does not name this run's workspace
+# (pullely/cirrus-timing-1, run 38529324381, baseline-v15).
+saved_identity="$identity"
+identity="$here/fixtures/baseline-identity.cirrus-baseline.json"
+wsref='TOKEN: secret://ws_KWQ45Z6M/cirrus-baseline/stage/CLOUDFLARE_D1_TOKEN'
+wsbase='"reponame":"cirrus-timing-1","productname":"Cirrus Timing 1","productdomain":"cirrus-timing-1.invalid"'
+check "the baseline's ws_ workspace becomes the product's" \
+  "{$wsbase,\"orunWorkspace\":\"ws_KCR13BW3\"}" infra/terraform/d1/component.yaml "$wsref" \
+  "TOKEN: secret://ws_KCR13BW3/cirrus-timing-1/stage/CLOUDFLARE_D1_TOKEN"
+check "…and stays the product's through every later phase's pass" \
+  "{$wsbase,\"orunWorkspace\":\"ws_KCR13BW3\"}" infra/terraform/d1/component.yaml "$wsref" \
+  "TOKEN: secret://ws_KCR13BW3/cirrus-timing-1/stage/CLOUDFLARE_D1_TOKEN" 3
+check "…and an explicit workspace slug wins over the id" \
+  "{$wsbase,\"orunWorkspace\":\"ws_KCR13BW3\",\"orunWorkspaceSlug\":\"cirrus-v15-test\"}" infra/terraform/d1/component.yaml "$wsref" \
+  "TOKEN: secret://cirrus-v15-test/cirrus-timing-1/stage/CLOUDFLARE_D1_TOKEN"
+identity="$saved_identity"
+
 echo "── rebrand: a written value is not rewritten"
 check "a slug containing a baseline word survives" \
   "{$base,\"orunWorkspaceSlug\":\"cirrus-test\"}" apps/w/component.yaml "$ref" \
