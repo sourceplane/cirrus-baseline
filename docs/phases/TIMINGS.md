@@ -1,42 +1,91 @@
 # Bootstrap timings — what to budget, and where the numbers come from
 
-**Provenance matters here.** Cirrus forked the Lumen baseline and replaced
-its data plane, so the numbers below split into two kinds:
+**Measured.** The numbers below are one bootstrap of `baseline-v17` on
+2026-10-14: `pullely/cirrus-timing-3`, built with `orun baseline new
+cirrus-baseline --local --run-hooks` (orun 2.77.1) from a laptop into
+workspace `cirrus-v15-test` (`ws_KCR13BW3`), GitHub-hosted runners, lanes
+`auto` at `maxLanes: 6`, `concurrency: 6`, and the console deployed from the
+prebuilt artifact (saas-console-artifact CA5). One run is a measurement, not a
+distribution; replace it when a better one exists.
 
-- **Inherited (measured on Lumen).** Phases 01, 02, 04, 05, 06 do the same
-  work over the same content; their timings carry over. What changed under
-  them is where the mechanism lives — a shell layer, then typed actions in
-  the orun binary — not what any phase does.
-- **Not yet measured on Cirrus.** Phase 03 is a different phase here —
-  Cloudflare D1 and KV instead of a managed Postgres project — so Lumen's
-  phase-03 number does NOT apply, and no Cirrus bootstrap has been measured
-  end to end yet. The estimate below is reasoned from what the phase now
-  does, and is labeled as an estimate until a real run replaces it.
+## Per-phase (baseline-v17)
 
-## Per-phase wall-clock
+Phase time is the engine's own `done` narration. Prep is the phase's first
+narration line to its PR being opened (local render, rebrand, install, commit,
+push). PR CI is the landing PR's run (`plan` only, by design). Main is the
+`push: main` convergence, merge to `updated`. Lanes are GitHub lane jobs; orun
+jobs are the jobs those lanes ran (one check run each).
 
-| phase | time | provenance | dominated by |
-|---|---|---|---|
-| 01 scaffold | **~2m** | inherited | blueprint render + rebrand ~1m · repo create + push ~30s · link ~10s |
-| 02 foundation | **~5–9m** | inherited | PR verify lanes · main convergence |
-| 03 infrastructure | **~3m (estimate)** | **not measured** | terraform apply for `cloudflare-d1` + `cloudflare-kv` (both create in seconds) then `db-migrate` |
-| 04 workers | **~21–31m** | inherited | the two landings and their convergences |
-| 05 edge | **~5m** | inherited | apply→land→converge→`/health` probes |
-| 06 console | **~14–16m** | inherited | console builds are heavy |
-| 08 docs | **~1m** | inherited | probe + render + commit |
-| tracking (BT) | **seconds per landing (estimate)** | **not measured** | one `orun task list` and at most two creates per landing, one epic + seven milestones up front|
-| **total** | **~50–65m (estimate)** | | the worker phase dominates |
+| phase | time | prep | PR CI | merge → main start | main run | lanes / orun jobs | main attempts |
+|---|---|---|---|---|---|---|---|
+| 01 scaffold | **1m05s** | 0.4m | 0.3m | 3s | 0.5m | 0 / 0 (plan only) | 1 |
+| 02 foundation | **3m51s** | 0.3m | 0.3m | 4s | 2.7m | 6 / 33 | 1 |
+| 04 workers | **11m20s** | 0.4m | 0.3m | 3s | 10.1m | 6 / 48 | **2** |
+| 05 edge | **10m04s** | 0.4m | 0.3m | 3s | 8.7m | 6 / 35 (+3 skipped) | 1 |
+| 07 domain | not run | | | | | | |
+| 08 docs | **~1m** | 0.3m | 0.3m | 3s | 0.7m | 0 / 0 (plan only) | 1 |
 
-Phase 03 is where being Cloudflare-only shows up in the clock. On the Lumen
-baseline that phase measured ~10–15m and was dominated by managed-Postgres
-project creation (5–7m per environment, irreducible from our side). Creating
-a D1 database is an API call that returns in seconds, so the phase collapses
-to the cost of running a convergence at all.
+| | wall-clock (from the first command, 09:42:49Z) |
+|---|---|
+| stage `api-edge` `/health` first 200 | 22m25s |
+| stage console first 200 | 24m42s |
+| prod `api-edge` `/health` first 200 | 25m16s |
+| **URLs live** (prod console, the last of the four) | **27m05s** |
+| **full bootstrap** (exit 0) | **28m25s** |
 
-**Replace the estimate with a measurement.** After the first full Cirrus
-bootstrap, take the per-step timestamps from the umbrella's output and edit
-this table — an estimate that survives its first real run unchanged is a
-document nobody checked.
+Run ids, all on `pullely/cirrus-timing-3`: 05 main run 38546597137, 04 main
+run 38545219854. The stamped build log, the URL probe log and the per-run
+job lists are what these come from.
+
+### Against earlier runs
+
+| | v13 (2026-10-12) | v16 (2026-10-14, partial) | **v17 (this run)** | expected for v17 |
+|---|---|---|---|---|
+| 01 | ~1m | 1m03s | 1m05s | |
+| 02 | ~4.3m | 3m32s | 3m51s | |
+| 04 | ~8.5m | failed (see below) | 11m20s (one rerun) | |
+| 05 | ~9m | not reached | 10m04s | |
+| 08 | ~3m | not reached | ~1m | |
+| URLs live | ~23m | — | **27m05s** | ~18m |
+| total | ~26m | — | **28m25s** | ~21m |
+
+**The prebuilt console works, and the console stopped being the critical
+path.** Both console deploys logged
+`✓ prebuilt console web-console-next-8c0e95682a85f12a2a0f7749614cd3d4.tar.gz
+(sha256:48d5c051…); no build`; the build step took 0.6s and each console job
+1m13s–1m22s end to end. The product's `console-artifact.pin.json` names that
+tarball. Both consoles answer as "cirrus-timing-3 Console", stage with
+`deployEnv: stage` and prod with `deployEnv: prod`, each calling only
+`cirrus-timing-3-api-edge-<env>`.
+
+**Why the total did not fall to ~21m:**
+
+1. **04 paid one rerun (~2m).** Attempt 1 (8.1m) failed one job,
+   `admin-worker · prod`, on a Cloudflare first-deploy race —
+   `This Worker does not exist on your account. [code: 10007]` on
+   `cirrus-timing-3-admin-worker-prod`. The watch hook's resume passed it in
+   2.0m. A clean 04 is ~8.1m.
+2. **04's stage fleet runs in ONE lane.** `maxLanes: 6` across three
+   environments leaves stage with `auto 1/1` — 13 jobs at concurrency 6 in a
+   single runner, the slowest single job of the run (7.3m).
+3. **05's critical path is now `api-edge`, serialised stage → prod.**
+   `api-edge · stage` ran 10:02:16→10:05:50 (3.5m), `api-edge · prod` only
+   started after it, 10:05:59→10:08:21, although promotion is deferred during
+   a bootstrap; each console waits on its environment's `api-edge`
+   (component `dependsOn`), so prod's console went live at 10:09:54. Removing
+   the console build shortened the console job, not the path.
+
+So the next minutes are in 04's lane split (give stage more than one lane)
+and in why prod's `api-edge` waits for stage's.
+
+### What it took to get a clean run (2026-10-14)
+
+| run | baseline | stopped at | cause | fixed by |
+|---|---|---|---|---|
+| `pullely/cirrus-timing-1` | v15 | 01 | `orun.repo/ensure` calls `/orgs/<owner>/repos`, which 404s for a personal account | pre-creating the repo; orun fix in progress |
+| `pullely/cirrus-timing-1` | v15 | 02 | every secret ref kept the baseline's workspace: `Ref workspace "ws_KWQ45Z6M" does not name this run's workspace` | #17 (rebrand matches a `ws_…` segment) → v16 |
+| `pullely/cirrus-timing-2` | v16 | 04 | Cloudflare account at its 500-Worker limit (`code: 10037`); also `broker: mint_lock_timeout` on concurrent token mints | account cleaned up (344 Workers deleted) |
+| `sourceplane/cirrus-timing-3` | v17 | 01 | built into the baseline's own workspace: the `orun-workspace` hook read "unchanged" as "no workspace line" | #20; this run used another workspace |
 
 ## Things that shape the total
 
