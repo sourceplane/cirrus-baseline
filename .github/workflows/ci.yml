@@ -68,7 +68,7 @@ jobs:
   run:
     needs: plan
     runs-on: ubuntu-latest
-    # A BOOTSTRAP LANDING IS CHECKED, NOT REHEARSED. Every phase of the
+    # A BOOTSTRAP LANDING IS CHECKED BY `plan` ALONE. Every phase of the
     # baseline bootstrap lands on a branch named for its task — the provenance
     # pen's `orun/<KEY>-<slug>`, and the bootstrap's tasks are all `BASE-n` —
     # and is merged by `orun.pr/land@v1` as soon as this workflow is green.

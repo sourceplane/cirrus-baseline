@@ -19,7 +19,7 @@ in `implementation-plan.md` (and, for the binary, orun's
 | BT3 | cirrus | ✅ Shipped ([#31](https://github.com/sourceplane/cirrus/pull/31)) | Phases 02–08: `track` / `epicslug` inputs, `ensure-task` before every landing, `--task` on every landing; the umbrella's `programme` step and the rollup at the end of `verify`. |
 | BT4 | cirrus | ✅ Shipped ([#32](https://github.com/sourceplane/cirrus/pull/32)) | Phase 01 seeds `main` with one commit and lands the scaffold as PR #1 on `orun/BASE-n-01-scaffold`; the workflows-permission fallback re-lands without them. |
 | BT5 | cirrus | ✅ Shipped ([#33](https://github.com/sourceplane/cirrus/pull/33)) | `BASELINE-TASK.md` Step 1b (lay out the programme over MCP, skip on an older binary), rollup-quoting updates, `--set track=true` explicit, `orun spec push` of the deployment manifest onto the epic, the epic in the completion report; `AGENT-PROMPT.md` in step form. |
-| BT6 | cirrus | 🛠️ Partial ([#34](https://github.com/sourceplane/cirrus/pull/34)) | `tests/flows` quick-check component runs both contract tests in this repo's CI (never ships: no phase blueprint lists it). **The live rehearsal bootstrap is not done** — it needs an orun release carrying BT-O1/O2/O4, a workspace with the two integrations, and an admin key; see the human gates. |
+| BT6 | cirrus | ↗️ Moved out | The end-to-end rehearsal leaves this repository for a dedicated orchestration repository (2026-10-14). `tests/flows` quick-check component runs both contract tests in this repo's CI (never ships: no phase blueprint lists it). **The live rehearsal bootstrap is not done** — it needs an orun release carrying BT-O1/O2/O4, a workspace with the two integrations, and an admin key; see the human gates. |
 
 ## Departures from the plan
 

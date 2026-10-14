@@ -182,7 +182,7 @@ spec:
     # Was 60. The bootstrap now runs five landings instead of eight, checks a
     # landing's PR with `plan` only, deploys the fleet in one wave instead of
     # in dependency order, and deploys stage and prod side by side
-    # (docs/phases/TIMINGS.md). An estimate until a rehearsal measures it.
+    # (docs/phases/TIMINGS.md). An estimate until a run measures it.
     expectedMinutes: 30
     tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
   verify:

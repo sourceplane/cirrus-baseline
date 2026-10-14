@@ -24,7 +24,7 @@ its data plane, so the numbers below split into two kinds:
 | 05 edge | **~5m** | inherited | apply→land→converge→`/health` probes |
 | 06 console | **~14–16m** | inherited | console builds are heavy |
 | 08 docs | **~1m** | inherited | probe + render + commit |
-| tracking (BT) | **seconds per landing (estimate)** | **not measured** | one `orun task list` and at most two creates per landing, one epic + seven milestones up front; the rehearsal (BT6) replaces this row |
+| tracking (BT) | **seconds per landing (estimate)** | **not measured** | one `orun task list` and at most two creates per landing, one epic + seven milestones up front|
 | **total** | **~50–65m (estimate)** | | the worker phase dominates |
 
 Phase 03 is where being Cloudflare-only shows up in the clock. On the Lumen

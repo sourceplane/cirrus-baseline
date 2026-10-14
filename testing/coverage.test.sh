@@ -46,18 +46,7 @@ def bad(m): problems.append(m)
 # the check below refuses an exemption whose directory is absent, so a stale
 # entry cannot linger — and the next baseline-only directory should still have
 # to be argued for in a diff rather than discovered as a re-added feature.
-BASELINE_ONLY: dict[str, str] = {
-    "testing/rehearsal": (
-        "BE6b: the factory testing itself. A component that bootstraps a whole "
-        "throwaway product from the PUBLISHED baseline, asserts it came up, and "
-        "destroys it — so it is about this repository rather than about any "
-        "product, and a product that carried it would rehearse building itself. "
-        "It is also the first entry in this map since BE4 emptied it, which is "
-        "the diff this comment asked for: `testing/` is already on both leak "
-        "gates' NEVER lists, and the rehearsal keeps its own intent so a "
-        "product does not even inherit a mention of the composition it needs."
-    ),
-}
+BASELINE_ONLY: dict[str, str] = {}
 
 bp = yaml.safe_load((root / "repo-blueprint.yaml").read_text())
 
@@ -136,7 +125,7 @@ for entry in bp.get("ignore") or []:
 # `github-workflows` copies the whole `.github` directory, so a lane added for
 # this repository travels to every product built from it — and one that reads a
 # path under `testing/` cannot work there, because `testing/` is not placed.
-# rehearsal.yml did exactly this: shipped, on a nightly cron, reading an intent
+# A nightly lane did exactly this once: shipped, on a cron, reading an intent
 # file no product has.
 ignored = set(bp.get("ignore") or [])
 workflows = sorted((root / ".github" / "workflows").glob("*.y*ml"))

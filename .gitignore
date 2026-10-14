@@ -19,7 +19,7 @@ crash.log
 # orun per-job staged workspaces and object-model caches.
 #
 # `**/` because a pattern containing a slash is anchored to THIS directory,
-# so the root-anchored form missed `testing/rehearsal/.orun/` — an intent
+# so the root-anchored form missed a nested `.orun/` — an intent
 # that lives in a subdirectory caches beside itself, and a `plan` run there
 # offered 40 content-addressed blobs to the next `git add -A`.
 **/.orun/runs/

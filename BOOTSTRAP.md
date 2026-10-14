@@ -12,8 +12,8 @@ layer is now a typed action inside the binary, which is why the version floor
 matters and why a phase can be run alone, months later, from a fresh
 container.
 
-Target wall-clock: **about half an hour** (it was under an hour; a rehearsal
-has yet to measure the new number). Five landings instead of eight, each
+Target wall-clock: **about half an hour** (it was under an hour; see
+[docs/phases/TIMINGS.md](docs/phases/TIMINGS.md) for what a run measured). Five landings instead of eight, each
 pull request checked by `plan` alone because its merge runs the lanes on
 main anyway, the worker fleet deployed in two parallel waves instead of in
 binding order, and stage and prod deployed side by side until `08-docs`
@@ -215,46 +215,23 @@ every phase's state and is the flag for that.
 
 ## 4. Cutting a baseline tag (maintainers)
 
-Every product built from this repository resolves a `baseline-vN` tag. One cut
-from a commit whose tier-3 rehearsal never ran publishes a bootstrap nobody has
-watched work, to people who find out an hour in — so the tag is cut by a
-workflow rather than by hand:
+Every product built from this repository resolves a `baseline-vN` tag, so the
+tag is cut by a workflow rather than by hand:
 
 ```bash
 gh workflow run tag.yml -f version=baseline-v25          # from main
 gh workflow run tag.yml -f version=baseline-v25 -f ref=<sha>
 ```
 
-It refuses unless the commit has a **green run of the Rehearsal workflow on
-that exact sha**. If it refuses, the fix is to prove the commit rather than to
-go around it:
+It refuses a version that is not `baseline-v<N>` and a tag that already exists:
+a baseline tag is never moved, because products resolve it and repointing one
+changes what a build that already shipped was made of. Cut the next number.
 
-```bash
-gh workflow run rehearsal.yml --ref <sha>   # ~60 minutes, tier 3
-```
-
-The rule is `testing/tag-gate.sh` — a script, so it can be run before you need
-it, and tested (`testing/tag-gate.test.sh`) against a fake API. It distinguishes
-three answers on purpose: proven, **unproven** (run the rehearsal), and
-**unanswerable** (the API could not be asked, which is not the same thing and
-needs a different fix).
-
-### The half no file in this repository can enforce
-
-A workflow cannot refuse a tag push. A tag is created and *then* the event
-fires, and GitHub's required status checks apply to branches, not tags. So
-there are two layers, and only one of them is a gate:
-
-| | |
-|---|---|
-| `tag.yml` → `cut` | **The gate.** Verifies, then creates. An unproven tag cannot be cut this way. |
-| `tag.yml` → `verify` | **The alarm.** Runs on `push: tags: baseline-v*` and goes red if the commit was never proven. It cannot undo the tag. |
-
-Making the refusal binding needs one repository setting: a **ruleset on tag
-`baseline-v*` with "Restrict creations"**, leaving the workflow's token the only
-creator. Until that is set, `cut` is the paved road and `verify` is the alarm —
-which is written here rather than left implied, because a gate that quietly is
-not one is worse than a gate that says what it is.
+Whether a commit is fit to release is decided outside this repository. The
+end-to-end bootstrap that proves a published baseline is run from elsewhere,
+against the tag the registry publishes, so this repository carries none of
+that logic. Then move the registry row in orun-cloud's
+`infra/baselines-registry/baselines.yaml` by pull request.
 
 ## Troubleshooting (everything we hit doing this for real)
 
@@ -295,22 +272,6 @@ not one is worse than a gate that says what it is.
   Manager, no long-lived provider tokens on any deploy path. The bootstrap's
   own secret hooks hold no value either: a brokered secret is a pointer at a
   connection and a scope template, minted just-in-time at resolve.
-
-  The baseline's own tier-3 rehearsal lane is the one exception, and it is
-  why the account it runs against is not the one anything is deployed to: a
-  run that bootstraps a whole product from nothing has to hold the credential
-  the first consent would otherwise be clicked for, so it holds one for a
-  dedicated rehearsal account that can reach no production resource.
-
-  That token is an **orun-managed secret**, not a GitHub one — declared as
-  `secretEnv` on `testing/rehearsal/component.yaml`, resolved lease-bound at
-  claim time and redacted from the logs, revocable without a commit. So the
-  sentence above stays literally true of GitHub: `GITHUB_TOKEN` is still the
-  only credential this repository's CI holds. What is stored is a long-lived
-  provider token for an account nothing is deployed to, held by the platform
-  rather than by the forge, and the separation of the account — not the
-  storage — is what bounds that lane. It never touches a product, and no
-  product ever carries it.
 - **Resume-capable CI**: exec-id is the GitHub run id (no attempt suffix) and
   every lane passes `--retry` — `gh run rerun --failed` is a true resume.
 - **Parked-by-default fleet** at instantiation; the bootstrap un-parks it in
