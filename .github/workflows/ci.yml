@@ -90,7 +90,7 @@ jobs:
       # (6), so a packed plan starts every lane at once; it only binds on a
       # small plan that runs one lane per job. Inside a lane a job that waits
       # on another lane holds no slot.
-      max-parallel: 16
+      max-parallel: 19
       matrix:
         include: ${{ fromJson(needs.plan.outputs.lane-matrix) }}
     name: ${{ matrix.name }}
