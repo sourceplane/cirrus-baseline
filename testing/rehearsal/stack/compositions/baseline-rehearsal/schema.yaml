@@ -25,6 +25,7 @@ spec:
           - orunVersion
           - nodeVersion
           - baselineId
+          - subdomain
         properties:
           githuborg:
             type: string
@@ -35,6 +36,10 @@ spec:
             description: Pinned, never a range — a rehearsal that floats its engine is not reproducible.
           nodeVersion:
             type: string
+          subdomain:
+            type: string
+            pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
+            description: The workers.dev subdomain of the rehearsal's Cloudflare account. Required — the build's default is a placeholder that fails 05-edge.
           baselineId:
             type: string
             description: The registry id to rehearse. Resolved at its PUBLISHED tag, not from this working tree.

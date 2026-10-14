@@ -48,16 +48,24 @@ spec:
     # and pointing that at the org the real products live in is one typo away
     # from deleting one.
     githuborg: sourceplane-rehearsal
-    # orun's floor for this baseline: v2.58.6 (see BOOTSTRAP.md) — v2.58.5
-    # is the first that can bootstrap it at all, v2.58.6 the first whose
-    # landings verify each phase's PR. `baseline new --local` arrived in v2.57.0.
-    orunVersion: v2.58.11
+    # The orun this baseline's own CI runs: v2.77.1, the first whose lanes
+    # (execution.lanes, `orun run --lane`) no longer lose leases, wait on an
+    # upstream that already passed, or race the shared Node tool cache. A
+    # product built from this baseline runs its CI on lanes from 01-scaffold
+    # on, so the rehearsal's engine must be at least that.
+    orunVersion: v2.77.1
     nodeVersion: "20"
     # The baseline id in the registry. The rehearsal resolves the row, fetches
     # the source at the PUBLISHED TAG and builds what it names — which is the
     # point: it rehearses what a customer would actually get, not this
     # working tree.
-    baselineId: cirrus
+    baselineId: cirrus-baseline
+    # The workers.dev subdomain of the rehearsal's Cloudflare account. The
+    # build document's default is a placeholder, and a build that keeps it
+    # fails at 05-edge: the console smoke and the edge probes address
+    # `<worker>.<subdomain>.workers.dev`. A fact about the account, not a
+    # secret.
+    subdomain: rahulvarghesepullely
 
   # ORUN-MANAGED SECRETS, RESOLVED LEASE-BOUND AT CLAIM TIME.
   #

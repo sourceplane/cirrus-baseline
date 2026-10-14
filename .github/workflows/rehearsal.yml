@@ -62,7 +62,7 @@ jobs:
           # The floor `baseline new --local` arrived in. The COMPONENT pins
           # the version its own job installs; this one only has to be new
           # enough to plan and run.
-          version: v2.58.11
+          version: v2.77.1
 
       # Fail here, not an hour in. A workspace that is empty means the
       # repository variable was never set, and the component's own guard

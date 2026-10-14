@@ -100,6 +100,7 @@ spec:
           --set productdomain="rehearsal.invalid" \
           --set githuborg="{{.parameters.githuborg}}" \
           --set orunWorkspace="$ORUN_REHEARSAL_WORKSPACE" \
+          --set subdomain="{{.parameters.subdomain}}" \
           | tee "$events"
         echo "build=${PIPESTATUS[0]}" >> "$STATUS_FILE"
       onFailure: continue
