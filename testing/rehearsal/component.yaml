@@ -43,11 +43,12 @@ spec:
   path: testing/rehearsal
 
   parameters:
-    # The GitHub org the throwaway product repo is created under. Not
-    # `sourceplane` by default: a rehearsal creates and deletes repositories,
-    # and pointing that at the org the real products live in is one typo away
-    # from deleting one.
-    githuborg: sourceplane-rehearsal
+    # The GitHub owner the throwaway product repo is created under: the
+    # `pullely` account, which the rehearsal workspace's GitHub connection
+    # reaches. Never `sourceplane`: a rehearsal creates and deletes
+    # repositories, and pointing that at the org the real products live in is
+    # one typo away from deleting one.
+    githuborg: pullely
     # The orun this baseline's own CI runs: v2.77.1, the first whose lanes
     # (execution.lanes, `orun run --lane`) no longer lose leases, wait on an
     # upstream that already passed, or race the shared Node tool cache. A
