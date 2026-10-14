@@ -1155,6 +1155,10 @@ phases:
           uses: orun.pr/land@v1
           narrate: "The packages and data-plane PR is merged into main."
           with:
+            # The PR's only check is `plan`; the convergence this landing
+            # triggers on main is the real gate, and the `await` below watches
+            # it. Waiting for the PR check first cost ~20 s per landing.
+            wait: false
             task: "{{ .phase.hooks.task.outputs.key }}"
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
@@ -1267,6 +1271,10 @@ phases:
           uses: orun.pr/land@v1
           narrate: "The fleet PR is merged into main."
           with:
+            # The PR's only check is `plan`; the convergence this landing
+            # triggers on main is the real gate, and the `await` below watches
+            # it. Waiting for the PR check first cost ~20 s per landing.
+            wait: false
             task: "{{ .phase.hooks.task.outputs.key }}"
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
@@ -1364,6 +1372,10 @@ phases:
           uses: orun.pr/land@v1
           narrate: "The second-wave PR is merged into main."
           with:
+            # The PR's only check is `plan`; the convergence this landing
+            # triggers on main is the real gate, and the `await` below watches
+            # it. Waiting for the PR check first cost ~20 s per landing.
+            wait: false
             task: "{{ .phase.hooks.task.outputs.key }}"
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
@@ -1446,6 +1458,10 @@ phases:
           uses: orun.pr/land@v1
           narrate: "The domain PR is merged into main."
           with:
+            # The PR's only check is `plan`; the convergence this landing
+            # triggers on main is the real gate, and the `await` below watches
+            # it. Waiting for the PR check first cost ~20 s per landing.
+            wait: false
             task: "{{ .phase.hooks.task.outputs.key }}"
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"

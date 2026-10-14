@@ -34,8 +34,17 @@ execution:
   # is unaffected.
   lanes:
     mode: auto
-    maxLanes: 6
-    concurrency: 6
+    # The budget is the runner pool: a free GitHub plan starts 20 jobs at
+    # once, and `plan` is done before the lanes start, so 18 lanes fit in
+    # one wave. Auto mode shares them between environments by job count, so
+    # a bootstrap's fleet landing (13 stage + 13 prod + 25 dev verify jobs)
+    # gives stage and prod four or five lanes each instead of one. Measured
+    # with one lane per environment at `concurrency: 6`: thirteen deploys on
+    # one 4-vCPU runner took ~3 min each and 04-workers' convergence 10-13 min.
+    maxLanes: 18
+    # Jobs in flight inside a lane = the runner's cores (4 on ubuntu-latest):
+    # above that each job only slows the others down.
+    concurrency: auto
 
 compositions:
   sources:
@@ -46,7 +55,7 @@ compositions:
     # a commit here. Bumping the tag is the deliberate upgrade step.
     - name: stack-tectonic
       kind: oci
-      ref: oci://ghcr.io/sourceplane/stack-tectonic:0.18.1
+      ref: oci://ghcr.io/sourceplane/stack-tectonic:0.19.0
   resolution:
     precedence:
       - stack-tectonic
