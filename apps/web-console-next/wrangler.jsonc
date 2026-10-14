@@ -7,5 +7,14 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  // The product's identity, read per request by src/lib/app-config.ts
+  // (saas-console-artifact CA1): a console built from any tree serves the
+  // product this file belongs to. The rebrand rewrites these with the rest.
+  "vars": {
+    "CONSOLE_PRODUCT_NAME": "cirrus-baseline",
+    "CONSOLE_WORKERS_DEV_SUBDOMAIN": "rahulvarghesepullely",
+    "CONSOLE_API_WORKER_PREFIX": "cirrus-baseline-api-edge",
+    "CONSOLE_STORAGE_PREFIX": "cirrus-baseline.next"
   }
 }

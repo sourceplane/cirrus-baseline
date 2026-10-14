@@ -5,7 +5,7 @@
 // clients in `@saas/sdk`. This file keeps only what is intrinsically a
 // console concern:
 //
-//   - `ApiTarget` / `TARGETS` / `DEPLOY_ENV` / `IS_LOCKED` — the multi-target
+//   - `ApiTarget` / `apiTargets` / `deployEnv` / `isLocked` — the multi-target
 //     switcher the console exposes for stage/prod parity testing. The SDK
 //     deliberately doesn't carry "which environment am I pointed at",
 //     because that's a deployment-shape decision.
@@ -19,7 +19,7 @@
 //     happens here — that all comes from the SDK.
 
 import { CirrusBaseline, CirrusBaselineError, type ClientOptions } from "@saas/sdk";
-import { apiEdgeWorkersDevUrl } from "./app-config";
+import { apiEdgeWorkersDevUrl, appConfig, type AppConfig } from "./app-config";
 
 export type ApiClient = CirrusBaseline;
 
@@ -28,19 +28,30 @@ export interface ApiTarget {
   url: string;
 }
 
-const ALL_TARGETS: ApiTarget[] = [
-  { name: "stage", url: apiEdgeWorkersDevUrl("stage") },
-  { name: "prod", url: apiEdgeWorkersDevUrl("prod") },
-];
+/** Every API target this console can talk to, under the config in force. */
+export function allTargets(config: AppConfig = appConfig()): ApiTarget[] {
+  return [
+    { name: "stage", url: apiEdgeWorkersDevUrl("stage", config) },
+    { name: "prod", url: apiEdgeWorkersDevUrl("prod", config) },
+  ];
+}
 
-export const DEPLOY_ENV: string | undefined =
-  typeof process !== "undefined" ? process.env.NEXT_PUBLIC_DEPLOY_ENV || undefined : undefined;
+/** The single environment this deploy serves, when it is locked to one. */
+export function deployEnv(config: AppConfig = appConfig()): string | undefined {
+  return config.deployEnv;
+}
 
-export const TARGETS: ApiTarget[] = DEPLOY_ENV
-  ? ALL_TARGETS.filter((t) => t.name === DEPLOY_ENV)
-  : ALL_TARGETS;
+/** The targets the user may pick: only the deploy's own when it is locked. */
+export function apiTargets(config: AppConfig = appConfig()): ApiTarget[] {
+  const env = deployEnv(config);
+  const all = allTargets(config);
+  return env ? all.filter((t) => t.name === env) : all;
+}
 
-export const IS_LOCKED: boolean = TARGETS.length === 1 && !!DEPLOY_ENV;
+/** True when this deploy serves exactly one environment (no target switcher). */
+export function isLocked(config: AppConfig = appConfig()): boolean {
+  return apiTargets(config).length === 1 && !!deployEnv(config);
+}
 
 export interface ApiErrorBody {
   code: string;
