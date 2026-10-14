@@ -27,6 +27,11 @@ on:
         required: false
         default: false
         type: boolean
+      replace:
+        description: "Replace a published console for the same sources (a packing fix)."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: baseline-tag
@@ -124,6 +129,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ inputs.version }}
+      # The PACKER comes from this workflow's own commit, not the tag: the
+      # sources being packed are the tag's (and name the asset), but a fix to
+      # how they are packed must reach an existing tag's console too.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .packer
+          sparse-checkout: apps/web-console-next/scripts/console-artifact.mjs
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
@@ -141,7 +155,7 @@ jobs:
         id: pack
         run: |
           set -euo pipefail
-          node apps/web-console-next/scripts/console-artifact.mjs pack --out dist/console-artifact | tee pack.log
+          node .packer/apps/web-console-next/scripts/console-artifact.mjs pack --root . --out dist/console-artifact | tee pack.log
           echo "asset=$(sed -n 's/^asset=//p' pack.log)" >> "$GITHUB_OUTPUT"
       - name: publish it
         run: |
@@ -154,7 +168,12 @@ jobs:
               --notes "Content-addressed builds of apps/web-console-next, one per set of console sources, used by a bootstrap's first console deploy. See specs/epics/saas-console-artifact."
           fi
           if gh release view console-artifacts --json assets --jq '.assets[].name' | grep -qx "$asset"; then
-            echo "✓ $asset is already published (same sources, same build)"
+            if [ "${{ inputs.replace }}" = "true" ]; then
+              gh release upload console-artifacts --clobber "dist/console-artifact/$asset" "dist/console-artifact/$asset.sha256"
+              echo "✓ replaced $asset for ${{ inputs.version }}"
+            else
+              echo "✓ $asset is already published (same sources, same build)"
+            fi
           else
             gh release upload console-artifacts "dist/console-artifact/$asset" "dist/console-artifact/$asset.sha256"
             echo "✓ published $asset for ${{ inputs.version }}"
