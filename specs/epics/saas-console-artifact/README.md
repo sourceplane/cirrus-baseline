@@ -17,7 +17,7 @@ bootstrap deploy it instead of building.
 
 | Field | Value |
 |-------|-------|
-| Status | **CA1 done (#14) · CA2 done (#15) · CA3 + CA4 in progress** |
+| Status | **CA1 done (#14) · CA2 done (#15) · CA3 + CA4 done (#16, #18) — first artifact: baseline-v17 · CA5 open** |
 | Owner(s) | `apps/web-console-next` (runtime config), `.github/workflows/tag.yml` (publish), `repo-blueprint.yaml` 05 (consume) |
 | Target | phase 05 deploy run ~8m → ~3–4m; URLs live ~5m earlier |
 
@@ -45,3 +45,20 @@ bootstrap deploy it instead of building.
   digest to the baseline tag.
 - **`SOLO_MODE` stays a build flag.** It is a property of the baseline, not of
   a product, so every product from one tag shares it.
+- **The artifact is the bundled worker, not OpenNext's raw output.** `.open-next`
+  `require()`s files by absolute build-machine path, which `wrangler deploy`
+  resolves when it bundles, so the raw output only deploys on the machine that
+  built it. `pack` bundles there (`wrangler deploy --dry-run --outdir`) and
+  ships the self-contained `worker.js` plus `assets` (#18; 9.0 → 2.9 MB). The
+  first v17 asset had the raw form and was replaced with `publish_only` +
+  `replace` before anything used it.
+
+## Verified (v17)
+
+A product placed from `baseline-v17` and rebranded to `acme-cloud` pinned
+`web-console-next-8c0e9568….tar.gz` from the live `console-artifacts` release,
+its build command downloaded and verified it (no build), and the result,
+served from the product's own directory with no build tree reachable,
+answered on the stage and prod hosts as "acme-cloud Console", locked to each
+environment, calling only that environment's api-edge.
+
