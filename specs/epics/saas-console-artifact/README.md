@@ -17,7 +17,7 @@ bootstrap deploy it instead of building.
 
 | Field | Value |
 |-------|-------|
-| Status | **CA1 done (#14) · CA2 done (#15) · CA3 + CA4 done (#16, #18) — first artifact: baseline-v17 · CA5 open** |
+| Status | **CA5 done** — CA1 (#14) · CA2 (#15) · CA3 + CA4 (#16, #18) · CA5 measured on baseline-v17: prebuilt console, no build, URLs live 27m05s, total 28m25s ([TIMINGS](../../../docs/phases/TIMINGS.md)) |
 | Owner(s) | `apps/web-console-next` (runtime config), `.github/workflows/tag.yml` (publish), `repo-blueprint.yaml` 05 (consume) |
 | Target | phase 05 deploy run ~8m → ~3–4m; URLs live ~5m earlier |
 
