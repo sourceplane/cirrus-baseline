@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # THE PREBUILT CONSOLE IS USED EXACTLY WHEN IT IS THE SAME CODE.
 #
-# saas-console-artifact CA3/CA4. tag.yml publishes the console's OpenNext
-# output under a hash of the sources that produce it; a bootstrap's 05 phase
+# saas-console-artifact CA3/CA4. tag.yml publishes the console — bundled on
+# the build machine, because OpenNext's raw output require()s absolute
+# build-machine paths — under a hash of the sources that produce it; a bootstrap's 05 phase
 # pins it into the product if the baseline's sources have one; the product's
 # build command fetches it while its own sources still hash to the pin, and
 # builds from source once they don't. This drives the real
@@ -32,13 +33,25 @@ mkws() {
   echo "lock: 1" > "$d/pnpm-lock.yaml"
   echo "export const name = 'baseline';" > "$d/apps/web-console-next/src/app.ts"
   echo "export class Client {}" > "$d/packages/sdk/src/index.ts"
+  echo "{}" > "$d/apps/web-console-next/wrangler.jsonc"
   cp "$tool" "$d/apps/web-console-next/scripts/console-artifact.mjs"
 }
 mkbuild() {
   local d="$1"
-  mkdir -p "$d/apps/web-console-next/.open-next/assets"
-  echo "export default {}" > "$d/apps/web-console-next/.open-next/worker.js"
+  mkdir -p "$d/apps/web-console-next/.open-next/assets" "$d/apps/web-console-next/node_modules/.bin"
+  # Like OpenNext's output: a require() by absolute build-machine path.
+  echo "require('/home/runner/work/x/handler.mjs'); export default {}" > "$d/apps/web-console-next/.open-next/worker.js"
   echo "asset" > "$d/apps/web-console-next/.open-next/assets/a.txt"
+  # A stand-in wrangler: `deploy --dry-run --outdir <dir>` writes the bundle,
+  # with the absolute require resolved — or not, when BUNDLE_LEAKS is set.
+  cat > "$d/apps/web-console-next/node_modules/.bin/wrangler" <<'W'
+#!/usr/bin/env bash
+while [ $# -gt 0 ]; do [ "$1" = "--outdir" ] && out="$2"; shift; done
+mkdir -p "$out"
+if [ -n "${BUNDLE_LEAKS:-}" ]; then echo "require('/home/runner/work/x/handler.mjs')" > "$out/worker.js"
+else echo "export default { fetch() {} } // bundled" > "$out/worker.js"; fi
+W
+  chmod +x "$d/apps/web-console-next/node_modules/.bin/wrangler"
 }
 run() { node "$1/apps/web-console-next/scripts/console-artifact.mjs" "${@:2}"; }
 
@@ -60,6 +73,14 @@ run "$work/base" pack --out "$work/rel2" >/dev/null
 asset="web-console-next-$h1.tar.gz"
 [ -f "$work/rel/$asset" ] && [ -f "$work/rel/$asset.sha256" ] && ok "named by the source hash, with a .sha256" || bad "expected $asset"
 cmp -s "$work/rel/$asset" "$work/rel2/$asset" && ok "deterministic: the same build packs to the same bytes" || bad "two packs differ"
+mkdir -p "$work/peek" && tar -xzf "$work/rel/$asset" -C "$work/peek"
+grep -q "bundled" "$work/peek/.open-next/worker.js" && [ -f "$work/peek/.open-next/assets/a.txt" ] \
+  && ok "holds the bundled worker and the assets, not OpenNext's raw output" || bad "the artifact is not the bundled worker + assets"
+if BUNDLE_LEAKS=1 run "$work/base" pack --out "$work/rel3" >/dev/null 2>&1; then
+  bad "packed a worker that still require()s an absolute build-machine path"
+else
+  ok "refuses a bundle that still require()s an absolute path"
+fi
 
 echo "── pin and build in a product"
 mkws "$work/prod"
