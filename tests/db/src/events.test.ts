@@ -89,10 +89,6 @@ const SAMPLE_AUDIT_ROW_DATA = {
 
 const SAMPLE_AUDIT_ROW = { ...SAMPLE_AUDIT_ROW_DATA };
 
-const SAMPLE_EVENT_WITH_AUDIT_ROW = {
-  _event: SAMPLE_EVENT_ROW,
-  _audit: SAMPLE_AUDIT_ROW_DATA,
-};
 
 describe("events repository: appendEvent", () => {
   it("inserts an event and returns the mapped entity", async () => {
@@ -236,7 +232,7 @@ describe("events repository: appendEvent", () => {
 describe("events repository: appendEventWithAudit", () => {
   it("inserts event and audit in one SQL statement", async () => {
     const { executor, queries } = createFakeExecutor({
-      rows: [SAMPLE_EVENT_WITH_AUDIT_ROW],
+      callResponses: [{ rows: [SAMPLE_EVENT_ROW] }, { rows: [SAMPLE_AUDIT_ROW_DATA] }],
     });
     const repo = createEventsRepository(executor);
 
@@ -272,10 +268,12 @@ describe("events repository: appendEventWithAudit", () => {
       expect(result.value.audit.id).toBe("aud-001");
       expect(result.value.audit.eventId).toBe("evt-001");
     }
-    // Only one SQL call (CTE)
-    expect(queries).toHaveLength(1);
-    expect(queries[0]!.text).toContain("WITH inserted_event AS");
-    expect(queries[0]!.text).toContain("inserted_audit AS");
+    // One batch of two inserts (a stub executor runs them in order; the
+    // atomicity is proven against real SQLite in sqlite-schema.test.ts).
+    expect(queries).toHaveLength(2);
+    expect(queries[0]!.text).toContain("INSERT INTO events_event_log");
+    expect(queries[1]!.text).toContain("INSERT INTO events_audit_entries");
+    for (const q of queries) expect(q.text).not.toMatch(/\bWITH\b|row_to_json|ON CONFLICT/);
   });
 
   it("returns conflict when event already exists (no event row returned)", async () => {

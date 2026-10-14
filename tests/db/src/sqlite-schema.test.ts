@@ -8,6 +8,7 @@ import { createMembershipRepository } from "@saas/db/membership";
 import { createProjectsRepository } from "@saas/db/projects";
 import { createMeteringRepository } from "@saas/db/metering";
 import { createWebhookRepository } from "@saas/db/webhooks";
+import { createEventsRepository } from "@saas/db/events";
 import { asUuid } from "@saas/db";
 import { D1ApiAdapter } from "@saas/db/runner";
 
@@ -47,6 +48,21 @@ function d1Over(db: DatabaseSync): D1Binding {
         },
       };
       return statement;
+    },
+    // D1's batch is one implicit transaction: every statement applies or none
+    // does. Mirrored with a real SQLite transaction, so the suite proves the
+    // rollback rather than assuming it.
+    async batch(statements: Array<{ all(): Promise<unknown> }>) {
+      db.exec("BEGIN");
+      try {
+        const results = [];
+        for (const statement of statements) results.push(await statement.all());
+        db.exec("COMMIT");
+        return results;
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
     },
   } as unknown as D1Binding;
 }
@@ -331,5 +347,145 @@ describe("the rewritten queries, against a real SQLite engine", () => {
     const streak = await repo.countConsecutiveEndpointFailures(orgId, "wep_none");
     expect(streak.ok).toBe(true);
     if (streak.ok) expect(streak.value).toBe(0);
+  });
+});
+
+// The three writes a first sign-in and a first invite make. Each was ported
+// from Postgres as one statement built on data-modifying CTEs (`WITH x AS
+// (INSERT … RETURNING *)`) and `row_to_json`, neither of which SQLite has, so
+// on D1 every one of them failed: onboarding answered "Failed to create
+// organization" for every product built from this baseline. The stubbed-
+// executor suites asserted the SQL text and could not see it.
+describe("the writes onboarding makes, against a real SQLite engine", () => {
+  let db: DatabaseSync;
+  let executor: ReturnType<typeof createSqlExecutor>;
+  const at = new Date("2026-01-01T00:00:00.000Z");
+  const orgId = asUuid("55555555-5555-4555-8555-555555555555");
+
+  beforeEach(() => {
+    db = migratedDatabase();
+    executor = createSqlExecutor(d1Over(db));
+  });
+
+  afterEach(() => {
+    db.close();
+  });
+
+  function bootstrapInput(id: string, slug: string, memberId: string, roleId: string) {
+    const org = asUuid(id);
+    return {
+      org: { id: org, name: slug, slug, slugLower: slug, createdAt: at },
+      member: { id: memberId, orgId: org, subjectId: "usr_owner", subjectType: "user", createdAt: at },
+      roleAssignment: {
+        id: roleId, orgId: org, subjectId: "usr_owner", subjectType: "user",
+        role: "owner", scopeKind: "organization", scopeRef: null, createdAt: at,
+      },
+    };
+  }
+
+  function count(table: string): number {
+    return (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+  }
+
+  it("bootstraps an organization with its owner member and role", async () => {
+    const repo = createMembershipRepository(executor);
+    const result = await repo.bootstrapOrganization(
+      bootstrapInput(orgId, "acme", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777"),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.org.slug).toBe("acme");
+    expect(result.value.org.createdAt.toISOString()).toBe(at.toISOString());
+    expect(result.value.member.subjectId).toBe("usr_owner");
+    expect(result.value.roleAssignment.role).toBe("owner");
+    expect(count("membership_organization_members")).toBe(1);
+    expect(count("membership_role_assignments")).toBe(1);
+  });
+
+  it("answers a taken slug with a conflict and leaves no orphan member or role", async () => {
+    const repo = createMembershipRepository(executor);
+    const first = await repo.bootstrapOrganization(
+      bootstrapInput(orgId, "acme", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777"),
+    );
+    expect(first.ok).toBe(true);
+
+    const again = await repo.bootstrapOrganization(
+      bootstrapInput("88888888-8888-4888-8888-888888888888", "acme", "99999999-9999-4999-8999-999999999999", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+    );
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.error.kind).toBe("conflict");
+    expect(count("membership_organizations")).toBe(1);
+    expect(count("membership_organization_members")).toBe(1);
+    expect(count("membership_role_assignments")).toBe(1);
+  });
+
+  it("appends an event and its audit entry together", async () => {
+    const repo = createEventsRepository(executor);
+    const result = await repo.appendEventWithAudit({
+      event: {
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        type: "organization.created", version: 1, source: "membership-worker", occurredAt: at,
+        actorType: "user", actorId: "usr_owner", orgId,
+        subjectKind: "organization", subjectId: orgId, subjectName: "acme",
+        requestId: "req_test", payload: { name: "acme" },
+      },
+      audit: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", category: "membership", description: "Organization created" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.event.type).toBe("organization.created");
+    expect(result.value.event.payload).toEqual({ name: "acme" });
+    expect(result.value.audit.eventId).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    expect(result.value.audit.category).toBe("membership");
+    expect(count("events_event_log")).toBe(1);
+    expect(count("events_audit_entries")).toBe(1);
+
+    const replay = await repo.appendEventWithAudit({
+      event: {
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        type: "organization.created", version: 1, source: "membership-worker", occurredAt: at,
+        actorType: "user", actorId: "usr_owner", orgId,
+        subjectKind: "organization", subjectId: orgId, requestId: "req_test", payload: {},
+      },
+      audit: { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" },
+    });
+    expect(replay.ok).toBe(false);
+    if (!replay.ok) expect(replay.error.kind).toBe("conflict");
+    expect(count("events_audit_entries")).toBe(1);
+  });
+
+  it("accepts an invitation into a member and its role, once", async () => {
+    const repo = createMembershipRepository(executor);
+    expect((await repo.bootstrapOrganization(
+      bootstrapInput(orgId, "acme", "66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777"),
+    )).ok).toBe(true);
+    const invited = await repo.createInvitation({
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", orgId, email: "Bo@Example.com", emailLower: "bo@example.com",
+      role: "builder", tokenHash: "hash-1", invitedBy: "usr_owner",
+      expiresAt: new Date("2026-02-01T00:00:00.000Z"), createdAt: at,
+    });
+    expect(invited.ok).toBe(true);
+
+    const input = {
+      tokenHash: "hash-1", orgId, emailLower: "bo@example.com",
+      memberId: "ffffffff-ffff-4fff-8fff-ffffffffffff", roleAssignmentId: "12121212-1212-4212-8212-121212121212",
+      subjectId: "usr_bo", subjectType: "user", acceptedAt: new Date("2026-01-02T00:00:00.000Z"),
+    };
+    const accepted = await repo.acceptInvitation(input);
+    expect(accepted.ok).toBe(true);
+    if (!accepted.ok) return;
+    expect(accepted.value.invitation.status).toBe("accepted");
+    expect(accepted.value.member.subjectId).toBe("usr_bo");
+    expect(accepted.value.roleAssignment.role).toBe("builder");
+    expect(count("membership_organization_members")).toBe(2);
+
+    const twice = await repo.acceptInvitation({
+      ...input, memberId: "13131313-1313-4313-8313-131313131313", roleAssignmentId: "14141414-1414-4414-8414-141414141414",
+    });
+    expect(twice.ok).toBe(false);
+    expect(count("membership_organization_members")).toBe(2);
+    expect(count("membership_role_assignments")).toBe(2);
   });
 });

@@ -1,4 +1,4 @@
-import type { SqlExecutor } from "../d1/executor.js";
+import { executeBatch, type SqlExecutor } from "../d1/executor.js";
 import type {
   AppendEventInput,
   AppendEventWithAuditInput,
@@ -181,9 +181,43 @@ export function createEventsRepository(executor: SqlExecutor): EventsRepository 
     async appendEventWithAudit(input: AppendEventWithAuditInput): Promise<EventsResult<{ event: StoredEvent; audit: StoredAuditEntry }>> {
       const { event, audit } = input;
       try {
-        const result = await executor.execute<Record<string, unknown>>(
-          `WITH inserted_event AS (
-            INSERT INTO events_event_log (
+        // ONE ATOMIC BATCH: the event and its audit entry land together or not
+        // at all. This was a Postgres data-modifying CTE with `row_to_json`,
+        // which SQLite cannot parse, so on D1 every audited write failed here.
+        // No ON CONFLICT on the event: a replayed id raises a unique
+        // violation, the batch rolls back, and the caller gets the same
+        // conflict it got before — with no second audit entry.
+        const params = [
+          event.id,
+          event.type,
+          event.version,
+          event.source,
+          event.occurredAt.toISOString(),
+          event.actorType,
+          event.actorId,
+          event.actorSessionId ?? null,
+          event.actorIp ?? null,
+          event.orgId,
+          event.projectId ?? null,
+          event.environmentId ?? null,
+          event.subjectKind,
+          event.subjectId,
+          event.subjectName ?? null,
+          event.requestId,
+          event.correlationId ?? null,
+          event.causationId ?? null,
+          event.idempotencyKey ?? null,
+          JSON.stringify(event.payload),
+          JSON.stringify(event.redactPaths ?? []),
+          audit.id,
+          audit.projectId ?? event.projectId ?? null,
+          audit.environmentId ?? event.environmentId ?? null,
+          audit.category ?? "general",
+          audit.description ?? "",
+        ];
+        const [eventResult, auditResult] = await executeBatch(executor, [
+          {
+            text: `INSERT INTO events_event_log (
               id, type, version, source, occurred_at,
               actor_type, actor_id, actor_session_id, actor_ip,
               org_id, project_id, environment_id,
@@ -198,10 +232,11 @@ export function createEventsRepository(executor: SqlExecutor): EventsRepository 
               $16, $17, $18, $19,
               $20, $21
             )
-            ON CONFLICT (id) DO NOTHING
-            RETURNING *
-          ), inserted_audit AS (
-            INSERT INTO events_audit_entries (
+            RETURNING *`,
+            params,
+          },
+          {
+            text: `INSERT INTO events_audit_entries (
               id, event_id, org_id, project_id, environment_id,
               actor_type, actor_id,
               event_type, event_version, source,
@@ -209,8 +244,7 @@ export function createEventsRepository(executor: SqlExecutor): EventsRepository 
               category, description, occurred_at,
               request_id, correlation_id,
               payload, redact_paths
-            )
-            SELECT
+            ) VALUES (
               $22, $1, $10, $23, $24,
               $6, $7,
               $2, $3, $4,
@@ -218,64 +252,23 @@ export function createEventsRepository(executor: SqlExecutor): EventsRepository 
               $25, $26, $5,
               $16, $17,
               $20, $21
-            FROM inserted_event
-            RETURNING *
-          )
-          SELECT
-            row_to_json(e.*) AS _event,
-            row_to_json(a.*) AS _audit
-          FROM inserted_event e
-          FULL JOIN inserted_audit a ON true`,
-          [
-            event.id,
-            event.type,
-            event.version,
-            event.source,
-            event.occurredAt.toISOString(),
-            event.actorType,
-            event.actorId,
-            event.actorSessionId ?? null,
-            event.actorIp ?? null,
-            event.orgId,
-            event.projectId ?? null,
-            event.environmentId ?? null,
-            event.subjectKind,
-            event.subjectId,
-            event.subjectName ?? null,
-            event.requestId,
-            event.correlationId ?? null,
-            event.causationId ?? null,
-            event.idempotencyKey ?? null,
-            JSON.stringify(event.payload),
-            JSON.stringify(event.redactPaths ?? []),
-            audit.id,
-            audit.projectId ?? event.projectId ?? null,
-            audit.environmentId ?? event.environmentId ?? null,
-            audit.category ?? "general",
-            audit.description ?? "",
-          ],
-        );
+            )
+            RETURNING *`,
+            params,
+          },
+        ]);
 
-        if (result.rows.length === 0) {
-          return { ok: false, error: { kind: "conflict", entity: "event" } };
-        }
-
-        const row = result.rows[0]!;
-        const eventData = typeof row._event === "string" ? JSON.parse(row._event) : row._event;
-        const auditData = typeof row._audit === "string" ? JSON.parse(row._audit) : row._audit;
-
-        if (!eventData) {
-          return { ok: false, error: { kind: "conflict", entity: "event" } };
-        }
-        if (!auditData) {
+        const eventRow = eventResult?.rows[0];
+        const auditRow = auditResult?.rows[0];
+        if (!eventRow || !auditRow) {
           return { ok: false, error: { kind: "conflict", entity: "event" } };
         }
 
         return {
           ok: true,
           value: {
-            event: mapEvent(eventData as Record<string, unknown>),
-            audit: mapAuditEntry(auditData as Record<string, unknown>),
+            event: mapEvent(eventRow),
+            audit: mapAuditEntry(auditRow),
           },
         };
       } catch (err) {

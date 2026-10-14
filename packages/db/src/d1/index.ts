@@ -7,10 +7,11 @@ export type {
   SqlRow,
   SqlExecutorResult,
   SqlExecutor,
+  SqlStatement,
   SqlExecutorFactory,
   TransactionalSqlExecutor,
 } from "./executor.js";
-export { createSqlExecutor } from "./executor.js";
+export { createSqlExecutor, executeBatch } from "./executor.js";
 
 export type { TranslatedSql } from "./sql.js";
 export { translatePlaceholders, toBindValue } from "./sql.js";

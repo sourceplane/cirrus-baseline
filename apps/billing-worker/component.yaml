@@ -84,4 +84,4 @@ spec:
     surface: billing
     runtime: cloudflare
 # ci: re-trigger deploy (batch A — runner-starvation recovery 20260622T115650Z)
-# orun: redeploy 05-edge 20261013T143837Z
+# orun: redeploy d1-org-bootstrap-fix 20261014T042648Z
