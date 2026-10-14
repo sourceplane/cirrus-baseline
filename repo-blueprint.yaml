@@ -927,12 +927,15 @@ phases:
               const values = JSON.parse(fs.readFileSync(".rebrand/values.json", "utf8"));
               const ws = String(values.orunWorkspace || "").trim() || "ws_SET_ME";
               const before = fs.readFileSync("intent.yaml", "utf8");
-              const after = before.replace(/^(\s*workspace:\s*).*$/m, "$1" + ws);
-              if (after === before) {
+              // Look for the line rather than for a change: a product built
+              // into the baseline's OWN workspace rewrites the line to the
+              // value it already has, and "unchanged" is not "missing".
+              const line = /^(\s*workspace:\s*).*$/m;
+              if (!line.test(before)) {
                 console.error("orun-workspace: no `workspace:` line in intent.yaml — refusing to guess");
                 process.exit(1);
               }
-              fs.writeFileSync("intent.yaml", after);
+              fs.writeFileSync("intent.yaml", before.replace(line, "$1" + ws));
               console.log(
                 ws === "ws_SET_ME"
                   ? "orun-workspace: wrote placeholder ws_SET_ME — set your Orun Cloud workspace before enabling remote state"
