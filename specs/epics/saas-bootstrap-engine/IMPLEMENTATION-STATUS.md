@@ -14,8 +14,8 @@ shipped and every place it departed from the spec.
 | **BE5b** | ✅ Shipped | Tier 1 places, brands and runs the phases — and found two orun defects that made a real bootstrap impossible |
 | **BE4c** | ✅ Shipped | this baseline names the document a runner places (`spec.bootstrap.blueprint`) |
 | **BE6a** | ✅ Shipped | the teardown, before the lane that needs it — workers, D1 and KV by validated prefix |
-| **BE6b** | ✅ Shipped | the rehearsal is a component, with a stack this repo keeps |
-| BE6 | 🟡 Partial | the tag gate shipped; the live rehearsal itself needs credentials this repository deliberately does not hold |
+| **BE6b** | ↗️ Moved out | Moved out of this repository 2026-10-14: rehearsals for every baseline will run from a dedicated orchestration repository; `testing/rehearsal/`, `rehearsal.yml`, the tag gate and `teardown.sh` were removed here |
+| BE6 | ↗️ Moved out | `tag.yml` still cuts tags (version shape, never moves one); the rehearsal gate it called is gone with the rehearsal — see BE6b |
 
 ## BE1 — `repo-blueprint.yaml` v3: native phases
 

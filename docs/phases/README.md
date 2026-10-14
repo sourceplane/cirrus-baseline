@@ -93,14 +93,14 @@ modes are the same files.
 
 `--resume` places every phase not already derived as done, in dependency
 order, honouring each barrier. Expected wall-clock on a clean run:
-**~25–30 minutes** (an estimate until a rehearsal measures it). It was 50–65
+**~25–30 minutes** (an estimate until a run measures it). It was 50–65
 until the bootstrap stopped paying for the same work twice:
 
 - **Five landings, not eight.** The data plane lands with the packages
   (`02-foundation`), and the binding restore and the console land with the
   edge (`05-edge`). The numbering keeps its gaps (`03`, `06`) so the
   surviving names stay the identities the task plane and `--phase` use.
-- **A landing's PR is checked, not rehearsed.** `plan` only; the lanes run
+- **A landing's PR is checked by `plan` alone.** The lanes run
   once, on main.
 - **The fleet deploys in two parallel waves** instead of a six-deep chain:
   every worker-to-worker binding is stripped for the first deploy

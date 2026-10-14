@@ -158,25 +158,18 @@ ignore:
   #
   # `github-workflows` copies the whole `.github` directory, so anything added
   # there ships into every product built from this repository. These two run
-  # the FACTORY rather than the product, and both read paths under `testing/`
-  # that no product is placed with:
+  # the FACTORY rather than the product:
   #
-  #   rehearsal.yml  tier 3 — bootstraps a throwaway product nightly. Shipped,
-  #                  a fresh product repo gets a scheduled workflow that fails
-  #                  every night on a `testing/rehearsal/intent.yaml` it does
-  #                  not have. (It WAS shipping: BE6b added the workflow and
-  #                  kept `testing/rehearsal/` baseline-only, which stopped the
-  #                  component travelling and not the lane that runs it.)
   #   tag.yml        cuts `baseline-vN` tags for THIS repository. A product has
-  #                  no baseline tags and nothing to gate.
-  #   baseline.yml   tiers 0-2 — the factory's own lanes. These were inside
-  #                  `ci.yml` and therefore inside every product, where their
-  #                  four steps are red on the first pull request. `ci.yml`
+  #                  no baseline tags.
+  #   baseline.yml   tiers 0-2 — the factory's own lanes, which read paths under
+  #                  `testing/` that no product is placed with. These were
+  #                  inside `ci.yml` and therefore inside every product, where
+  #                  their steps are red on the first pull request. `ci.yml`
   #                  keeps `plan` and `run`, which a product needs.
   #
   # `testing/coverage.test.sh` keeps this list honest: a workflow that reads a
   # path under `testing/` must be named here, or the gate is red.
-  - "**/.github/workflows/rehearsal.yml"
   - "**/.github/workflows/tag.yml"
   - "**/.github/workflows/baseline.yml"
 
