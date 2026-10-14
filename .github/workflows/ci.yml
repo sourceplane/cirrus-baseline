@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0
       - uses: sourceplane/orun-action@v1.2.0
         with:
-          version: v2.78.2
+          version: v2.78.3
       - env:
           # Surface the best-effort catalog auto-sync (execution.state.autopushCatalog).
           # A successful push prints "✓ pushed catalog …"; ORUN_VERBOSE also makes
@@ -123,7 +123,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: sourceplane/orun-action@v1.2.0
         with:
-          version: v2.78.2
+          version: v2.78.3
       # exec-id is the RUN id alone (no attempt suffix): a `gh run rerun
       # --failed` then RESUMES the same orun execution — jobs that succeeded in
       # a prior attempt stay completed, so re-run lanes' cross-job dependencies
