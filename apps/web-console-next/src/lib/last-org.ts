@@ -18,7 +18,7 @@
  */
 
 import { STORAGE_PREFIX } from "./app-config";
-import { SOLO_MODE } from "./solo-mode";
+import { SOLO_MODE, orgHomePath } from "./solo-mode";
 import { pickAccountBillingOrg } from "@/components/billing/account-org";
 
 const LAST_ORG_KEY = `${STORAGE_PREFIX}.last-org`;
@@ -63,7 +63,7 @@ export function defaultOrgDestination(lastOrgSlug: string | null, soloMode: bool
   // Solo: projects are suppressed, so the personal workspace's "dashboard" is
   // its Account (settings) surface — where the kept single-user features live
   // (account, notifications, billing, config). Baseline lands on projects.
-  return soloMode ? `/orgs/${lastOrgSlug}/settings` : `/orgs/${lastOrgSlug}/projects`;
+  return orgHomePath(lastOrgSlug, soloMode);
 }
 
 /** Minimal shape of the API client needed to resolve the post-auth destination. */

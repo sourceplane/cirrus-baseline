@@ -27,6 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { orgHomePath } from "@/lib/solo-mode";
 import { buildNavSections, isLinkActive } from "./nav-items";
 import { buildSettingsNav, flattenSettingsNav, isSettingsLinkActive } from "./settings-nav";
 import { SidebarAccount } from "./sidebar-account";
@@ -170,7 +171,7 @@ function SettingsNavContent({
       {/* Back button on the left, "Settings" centered (Vercel pattern). */}
       <div className={cn("relative mb-2 flex items-center justify-center", mobile ? "h-11" : "h-8")}>
         <Link
-          href={`/orgs/${orgSlug}/projects`}
+          href={orgHomePath(orgSlug)}
           {...(onNavigate ? { onClick: onNavigate } : {})}
           aria-label="Back to app"
           className={cn(

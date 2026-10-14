@@ -21,6 +21,17 @@ declare const process: { env: Record<string, string | undefined> } | undefined;
 export const SOLO_MODE: boolean =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_SOLO_MODE === "true";
 
+/**
+ * An org's landing page under the active profile: its projects in the
+ * baseline, its Account (settings) surface in Solo, where projects are
+ * suppressed at the edge and the projects page could only show
+ * "Route not found: /v1/organizations/<id>/projects". Every link that means
+ * "this org's home" goes through here, never a hard-coded `/projects`.
+ */
+export function orgHomePath(orgSlug: string, soloMode: boolean = SOLO_MODE): string {
+  return soloMode ? `/orgs/${orgSlug}/settings` : `/orgs/${orgSlug}/projects`;
+}
+
 /** The tenant noun shown in user-facing copy under the active profile. In Solo
  *  the user IS the tenant, so the organization reads as their "Account". */
 export const TENANT_NOUN: string = SOLO_MODE ? "Account" : "Organization";

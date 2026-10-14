@@ -1,3 +1,5 @@
+import { SOLO_MODE } from "../../lib/solo-mode";
+
 /**
  * Pure command registry for the Cmd-K palette (Task 0127 / U11).
  *
@@ -65,6 +67,8 @@ export interface CommandContext {
   isLocked: boolean;
   /** available API targets for the Target group (empty when locked). */
   targets: { name: string }[];
+  /** Solo profile: projects are suppressed at the edge (defaults to the build flag). */
+  soloMode?: boolean;
 }
 
 /**
@@ -78,6 +82,7 @@ export interface CommandContext {
 export function buildBaseCommands(ctx: CommandContext): CommandDescriptor[] {
   const out: CommandDescriptor[] = [];
   const orgBase = ctx.orgSlug ? `/orgs/${ctx.orgSlug}` : null;
+  const soloMode = ctx.soloMode ?? SOLO_MODE;
   const projectBase =
     ctx.orgSlug && ctx.projectSlug ? `/orgs/${ctx.orgSlug}/projects/${ctx.projectSlug}` : null;
 
@@ -113,8 +118,12 @@ export function buildBaseCommands(ctx: CommandContext): CommandDescriptor[] {
 
   if (orgBase) {
     const settingsBase = `${orgBase}/settings`;
+    if (!soloMode) {
+      out.push(
+        navItem("nav.projects", "Projects", `${orgBase}/projects`, "FolderKanban", ["project"]),
+      );
+    }
     out.push(
-      navItem("nav.projects", "Projects", `${orgBase}/projects`, "FolderKanban", ["project"]),
       navItem("nav.usage", "Usage & quota", `${orgBase}/usage`, "Gauge", [
         "usage",
         "quota",
@@ -186,7 +195,9 @@ export function buildBaseCommands(ctx: CommandContext): CommandDescriptor[] {
   });
   if (orgBase) {
     out.push(
-      navItem("create.project", "Create project", `${orgBase}/projects?new=1`, "PlusCircle", ["new", "project"], "Create"),
+      ...(soloMode
+        ? []
+        : [navItem("create.project", "Create project", `${orgBase}/projects?new=1`, "PlusCircle", ["new", "project"], "Create")]),
       navItem("create.invitation", "Create invitation", `${orgBase}/settings/invitations?new=1`, "UserPlus", ["invite", "new"], "Create"),
       navItem("create.api-key", "Create API key", `${orgBase}/settings/api-keys?new=1`, "KeyRound", ["key", "new"], "Create"),
     );

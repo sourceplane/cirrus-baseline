@@ -16,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/session";
 import { wrap } from "@/lib/api";
 import { useApiQuery, qk } from "@/lib/query";
+import { SOLO_MODE } from "@/lib/solo-mode";
 
 /**
  * URL-driven scope switcher.
@@ -27,6 +28,13 @@ import { useApiQuery, qk } from "@/lib/query";
  *   URL, never local state.
  */
 export function ScopeSwitcher() {
+  // Solo has one org and no projects or environments: nothing to switch, and
+  // the project query would only 404 at the edge.
+  if (SOLO_MODE) return null;
+  return <ScopeSwitcherInner />;
+}
+
+function ScopeSwitcherInner() {
   const params = useParams<{ orgSlug?: string; projectSlug?: string; envSlug?: string }>();
   const router = useRouter();
   const { client, token } = useSession();
