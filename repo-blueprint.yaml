@@ -1140,6 +1140,15 @@ phases:
         # --frozen-lockfile, so this phase's packages were refused before a
         # test ran: `ERR_PNPM_OUTDATED_LOCKFILE … not up to date with
         # packages/contracts/package.json`. The landing stages it.
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what this phase added
+        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
+        # the platform's build box ("signal: killed" / "signal: aborted"); from
+        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
+        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
+        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
@@ -1221,6 +1230,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what this phase added
+        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
+        # the platform's build box ("signal: killed" / "signal: aborted"); from
+        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
+        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
+        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         # THE FLEET DEPLOYS IN ONE WAVE. A Cloudflare service binding cannot
@@ -1319,6 +1337,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what this phase added
+        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
+        # the platform's build box ("signal: killed" / "signal: aborted"); from
+        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
+        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
+        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         # The prebuilt console (saas-console-artifact CA4). If the baseline's
@@ -1404,6 +1431,15 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
+        # the projects placed so far. Re-resolving only what this phase added
+        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
+        # the platform's build box ("signal: killed" / "signal: aborted"); from
+        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
+        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
+        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
+        - id: pnpm-lockfile-seed
+          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
         - id: land
