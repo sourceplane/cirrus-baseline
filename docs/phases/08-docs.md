@@ -29,7 +29,15 @@ No secret VALUE is ever read or written — inventories are names/statuses.
    gate deferred** (a `# @promotion-deferred` line under `prod:` in
    intent.yaml): re-run `08-docs`, or run `node
    tooling/bootstrap/promotion.mjs --restore` in the product repo and land it.
-3. **docs** — a `post` hook runs `hooks/render-deployment-docs.sh` from the
+3. **dev-lanes** — a `post` hook runs `tooling/bootstrap/dev-lanes.mjs
+   --restore`: `01-scaffold` deferred dev's `github-push-main` activation so
+   no bootstrap convergence spent runner slots re-verifying the pinned
+   baseline's content on the dev rung; from here on every merge to main
+   verifies every component on dev again. Same shape as the promotion gate:
+   a `# @dev-lanes-deferred` line under `dev:` in intent.yaml while deferred,
+   byte-exact on restore, and `--restore` (or a re-run of this phase) is the
+   whole fix for a bootstrap that stopped early.
+4. **docs** — a `post` hook runs `hooks/render-deployment-docs.sh` from the
    baseline checkout: it probes the four public URLs (plus the custom domain
    when `productdomain` is set), lists secrets/integrations by name, and
    renders the files above. The script itself refuses to finish if a

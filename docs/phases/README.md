@@ -110,6 +110,12 @@ until the bootstrap stopped paying for the same work twice:
 - **Stage and prod deploy side by side** during the bootstrap: `01-scaffold`
   defers `prod.promotion` and `08-docs` restores it
   (`tooling/bootstrap/promotion.mjs`).
+- **Dev's verify lanes stay off main until the bootstrap is done.** Every
+  merge to main re-verifies every component on the dev rung, which proves
+  nothing the pinned baseline's own CI did not and took eight of a fleet
+  landing's eighteen lanes. `01-scaffold` defers dev's `github-push-main`
+  trigger and `08-docs` restores it (`tooling/bootstrap/dev-lanes.mjs`);
+  pull requests keep their dev lanes throughout.
 - **More lanes at once** (`max-parallel: 16`) and one shared pnpm store
   cache across them.
 
@@ -188,7 +194,8 @@ stage / restage and `pnpm install --lockfile-only` in `01-scaffold`,
 `tooling/rebrand/rebrand.mjs` (the identity rename, then `--verify`),
 `tooling/bootstrap/cycle-break.mjs` (strip and restore the service bindings
 across the fleet's two waves), `tooling/bootstrap/promotion.mjs` (defer and
-restore the prod promotion gate), `tooling/bootstrap/retouch.mjs` (the
+restore the prod promotion gate), `tooling/bootstrap/dev-lanes.mjs` (defer and
+restore dev's push-to-main activation), `tooling/bootstrap/retouch.mjs` (the
 redeploy marker every deploying phase writes before it lands), and
 `hooks/render-deployment-docs.sh`
 (`08-docs`'s renderer). Each resolves the baseline checkout as

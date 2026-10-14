@@ -13,11 +13,12 @@ spec:
   # build is the longest job in the plan, and a shared lane would wait on it.
   lane: isolated
   # The deploy smoke health-checks the api-edge worker
-  # (cirrus-baseline-api-edge-<env>/health), so api-edge must be live before this
-  # component's stage/prod deploy+smoke runs. Without this ordering the smoke
-  # races api-edge's concurrent deploy and fails with curl exit 22 (404).
-  dependsOn:
-    - component: api-edge
+  # (cirrus-baseline-api-edge-<env>/health). This used to declare
+  # `dependsOn: api-edge` so the smoke could not race api-edge's own deploy
+  # (curl exit 22); since stack-tectonic 0.18.2 the smoke runs under
+  # retry-with-backoff (~4.5 min budget), so the console deploys beside
+  # api-edge instead of after it — the serial wait was 05-edge's critical
+  # path once the console stopped building (saas-console-artifact CA5).
   subscribe:
     environments:
       - name: dev
