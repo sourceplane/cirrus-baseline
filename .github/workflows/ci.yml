@@ -86,9 +86,10 @@ jobs:
       fail-fast: false
       # Stagger the fan-out: every lane hits the lease-bound resolve at job
       # start, and an unbounded herd (fifty lanes) saturated it twice. Sixteen
-      # keeps the herd well under that, and equals execution.lanes.maxLanes,
-      # so a packed plan starts every lane at once. Inside a lane a job that
-      # waits on another lane holds no slot.
+      # keeps the herd well under that and is above execution.lanes.maxLanes
+      # (6), so a packed plan starts every lane at once; it only binds on a
+      # small plan that runs one lane per job. Inside a lane a job that waits
+      # on another lane holds no slot.
       max-parallel: 16
       matrix:
         include: ${{ fromJson(needs.plan.outputs.lane-matrix) }}
