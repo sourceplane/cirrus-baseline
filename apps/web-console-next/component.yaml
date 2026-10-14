@@ -71,7 +71,10 @@ spec:
     # ${WORKERS_DEV_SUBDOMAIN} and used to build ${DEPLOYED_URL}.
     workersDevSubdomain: rahulvarghesepullely
 
-    environmentBuildVar: NEXT_PUBLIC_DEPLOY_ENV
+    # No environmentBuildVar (saas-console-artifact CA2): the console learns its
+    # environment at runtime — CONSOLE_DEPLOY_ENV if set, else the `-<env>` its
+    # workers.dev host carries — so the build is the same for every environment
+    # and a build made anywhere can be deployed to any of them.
 
     installCommand: pnpm install --frozen-lockfile
     buildCommand: pnpm exec turbo run build --filter=@saas/web-console-next

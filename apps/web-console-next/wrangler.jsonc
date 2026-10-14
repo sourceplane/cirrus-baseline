@@ -15,6 +15,7 @@
     "CONSOLE_PRODUCT_NAME": "cirrus-baseline",
     "CONSOLE_WORKERS_DEV_SUBDOMAIN": "rahulvarghesepullely",
     "CONSOLE_API_WORKER_PREFIX": "cirrus-baseline-api-edge",
-    "CONSOLE_STORAGE_PREFIX": "cirrus-baseline.next"
+    "CONSOLE_STORAGE_PREFIX": "cirrus-baseline.next",
+    "CONSOLE_SALES_EMAIL": "sales@sourceplane.ai"
   }
 }

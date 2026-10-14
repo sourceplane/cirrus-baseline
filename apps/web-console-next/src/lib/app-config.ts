@@ -59,13 +59,32 @@ export const RUNTIME_KEYS: Record<keyof AppConfig, string> = {
   deployEnv: "CONSOLE_DEPLOY_ENV",
 };
 
+/** The environments a console deploy can be locked to: the API targets. */
+export const DEPLOY_ENVIRONMENTS = ["stage", "prod"] as const;
+
+/**
+ * The environment a request's host names, by the Worker naming every console
+ * deploy follows (`<worker>-<env>.<subdomain>.workers.dev`): the first label's
+ * last `-` segment, when that is a known environment. A custom domain names
+ * none, and its deploy sets CONSOLE_DEPLOY_ENV instead.
+ */
+export function environmentFromHost(host: string | null | undefined): string | undefined {
+  const label = (host ?? "").toLowerCase().split(":")[0]!.split(".")[0]!;
+  const suffix = label.slice(label.lastIndexOf("-") + 1);
+  return label.includes("-") && (DEPLOY_ENVIRONMENTS as readonly string[]).includes(suffix) ? suffix : undefined;
+}
+
 /**
  * The config for one request: each field from its runtime var when that is a
- * non-empty string, else the default. Pure, so it is unit-testable.
+ * non-empty string, else the default. The deploy environment falls back
+ * further, to the one the request's host names (saas-console-artifact CA2), so
+ * one build serves every environment without being told which at build time.
+ * Pure, so it is unit-testable.
  */
 export function resolveAppConfig(
   env: Record<string, string | undefined>,
   defaults: AppConfig = DEFAULT_APP_CONFIG,
+  host?: string | null,
 ): AppConfig {
   const pick = (key: keyof AppConfig): string | undefined => {
     const value = env[RUNTIME_KEYS[key]];
@@ -78,21 +97,31 @@ export function resolveAppConfig(
     apiWorkerPrefix: pick("apiWorkerPrefix") ?? defaults.apiWorkerPrefix,
     storagePrefix: pick("storagePrefix") ?? defaults.storagePrefix,
     salesEmail: pick("salesEmail") ?? defaults.salesEmail,
-    deployEnv: pick("deployEnv") ?? defaults.deployEnv,
+    deployEnv: pick("deployEnv") ?? defaults.deployEnv ?? environmentFromHost(host),
   };
 }
 
 let current: AppConfig = DEFAULT_APP_CONFIG;
+let serverHost: string | null = null;
+
+/**
+ * Record the host the server is answering on (the root layout calls this per
+ * request). Every console Worker serves one environment, so every request an
+ * isolate sees names the same one: concurrent requests cannot disagree.
+ */
+export function rememberRequestHost(host: string | null): void {
+  if (host) serverHost = host;
+}
 
 /**
  * The config in force. On the server it is resolved from the request's
- * environment on every call, so a server component never depends on the root
- * layout having rendered first. In the browser it is what <Providers> installed
- * from the layout's resolution.
+ * environment (and the host the layout recorded) on every call, so a server
+ * component never depends on the root layout having rendered first. In the
+ * browser it is what <Providers> installed from the layout's resolution.
  */
 export function appConfig(): AppConfig {
   if (typeof window === "undefined" && typeof process !== "undefined") {
-    return resolveAppConfig(process.env);
+    return resolveAppConfig(process.env, DEFAULT_APP_CONFIG, serverHost);
   }
   return current;
 }

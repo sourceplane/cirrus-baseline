@@ -17,7 +17,7 @@ bootstrap deploy it instead of building.
 
 | Field | Value |
 |-------|-------|
-| Status | **CA1 in progress** |
+| Status | **CA1 done (#14) · CA2 in progress** |
 | Owner(s) | `apps/web-console-next` (runtime config), `.github/workflows/tag.yml` (publish), `repo-blueprint.yaml` 05 (consume) |
 | Target | phase 05 deploy run ~8m → ~3–4m; URLs live ~5m earlier |
 
@@ -26,10 +26,10 @@ bootstrap deploy it instead of building.
 | | What | Done when |
 |---|---|---|
 | **CA1** | **Runtime identity.** Product name, workers.dev subdomain, API worker prefix, storage prefix, sales email and deploy environment are read per request from the Worker's `vars` (OpenNext copies string vars into `process.env`), falling back to today's compiled-in values. `wrangler.jsonc` declares them, so the rebrand sets a product's. | A build made with one identity serves another's when only `vars` differ. Behaviour unchanged with no vars. |
-| CA2 | **One build per commit.** The deploy environment comes from `CONSOLE_DEPLOY_ENV` (or the worker hostname) instead of `NEXT_PUBLIC_DEPLOY_ENV`; the component stops building per environment. | dev/stage/prod deploy the same `.open-next` output. |
+| CA2 | **One build per commit.** The deploy environment comes from `CONSOLE_DEPLOY_ENV`, else the `-<env>` the console Worker's workers.dev host carries, instead of a compiled-in `NEXT_PUBLIC_DEPLOY_ENV`; the component stops setting it. (The shared composition still builds once per environment job; the builds are now identical, which is what CA3 and CA4 need.) | A build with no deploy env serves stage on the stage host and prod on the prod host. |
 | CA3 | **Publish with the tag.** `tag.yml` builds the console at the tagged commit and attaches `web-console-next-<tag>.tar.gz` and its sha256 to the `baseline-vN` release. | Every new tag has the asset; its digest is recorded. |
 | CA4 | **Deploy, don't build, on the first landing.** Phase 05's console step downloads the asset for the product's baseline tag, verifies the digest, and runs `wrangler deploy` with the product's `wrangler.jsonc`. From the next push the product builds from its own source as usual. | A rehearsal's 05 shows no Next.js build; the product records the digest it first ran. |
-| CA5 | **Measure.** Rehearsal timings before and after, promoted into `docs/phases/TIMINGS.md`. | Measured, not estimated. |
+| CA5 | **Measure.** A real bootstrap's phase timings before and after (rehearsals now run from a separate orchestration repository, #13), promoted into `docs/phases/TIMINGS.md`. | Measured, not estimated. |
 
 ## Decisions
 
