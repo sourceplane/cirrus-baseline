@@ -77,7 +77,11 @@ spec:
     # and a build made anywhere can be deployed to any of them.
 
     installCommand: pnpm install --frozen-lockfile
-    buildCommand: pnpm exec turbo run build --filter=@saas/web-console-next
+    # saas-console-artifact CA4: with a console-artifact.pin.json (written by
+    # the bootstrap's 05 phase) and sources that still hash to it, this fetches
+    # the baseline's prebuilt console and verifies its sha256 instead of
+    # building; otherwise it runs `turbo run build --filter=@saas/web-console-next`.
+    buildCommand: node scripts/console-artifact.mjs build
 
     # Smoke: follow redirects (root `redirect("/orgs")` is a 307) and confirm
     # the SSR'd page contains the console marker. The api-edge worker is the

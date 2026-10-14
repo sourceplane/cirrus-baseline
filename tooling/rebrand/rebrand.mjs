@@ -226,6 +226,10 @@ const EXCLUDE_RE = new RegExp(
     // The baseline's declared identity. Renaming its contents would make the
     // product claim to be a baseline called by the product's own name.
     "^\\.baseline/",
+    // The prebuilt-console pin (saas-console-artifact CA4) names the BASELINE's
+    // release URL, which is provenance: renaming it would point the product at
+    // a release that does not exist.
+    "^apps/web-console-next/console-artifact\\.pin\\.json$",
     "^FORKING\\.md$",
     "^ai/context/fork-from-baseline\\.md$",
     "^pnpm-lock\\.yaml$",
