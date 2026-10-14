@@ -117,3 +117,17 @@ describe("groupCommands", () => {
     }
   });
 });
+
+describe("buildBaseCommands (Solo)", () => {
+  it("offers no Projects or Create project — projects are suppressed at the edge", () => {
+    const ids = buildBaseCommands({ ...baseCtx, orgSlug: "acme", soloMode: true }).map((c) => c.id);
+    expect(ids).not.toContain("nav.projects");
+    expect(ids).not.toContain("create.project");
+    expect(ids).toContain("nav.org-settings");
+  });
+
+  it("keeps them in the baseline", () => {
+    const ids = buildBaseCommands({ ...baseCtx, orgSlug: "acme", soloMode: false }).map((c) => c.id);
+    expect(ids).toEqual(expect.arrayContaining(["nav.projects", "create.project"]));
+  });
+});

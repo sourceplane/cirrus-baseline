@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Building2, FolderKanban, Gauge, Settings, User2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { SOLO_MODE } from "@/lib/solo-mode";
 import { isLinkActive } from "./nav-items";
 
 interface Tab {
@@ -24,13 +25,16 @@ export function BottomTabs() {
   const pathname = usePathname();
   const orgSlug = params?.orgSlug ?? null;
 
+  // Solo suppresses projects and usage (metering) at the edge: no tabs for them.
   const tabs: Tab[] = orgSlug
-    ? [
-        { href: "/orgs", label: "Orgs", icon: Building2 },
-        { href: `/orgs/${orgSlug}/projects`, label: "Projects", icon: FolderKanban },
-        { href: `/orgs/${orgSlug}/usage`, label: "Usage", icon: Gauge },
-        { href: `/orgs/${orgSlug}/settings`, label: "Settings", icon: Settings },
-      ]
+    ? SOLO_MODE
+      ? [{ href: `/orgs/${orgSlug}/settings`, label: "Settings", icon: Settings }]
+      : [
+          { href: "/orgs", label: "Orgs", icon: Building2 },
+          { href: `/orgs/${orgSlug}/projects`, label: "Projects", icon: FolderKanban },
+          { href: `/orgs/${orgSlug}/usage`, label: "Usage", icon: Gauge },
+          { href: `/orgs/${orgSlug}/settings`, label: "Settings", icon: Settings },
+        ]
     : [
         { href: "/orgs", label: "Organizations", icon: Building2 },
         { href: "/account", label: "Account", icon: User2 },

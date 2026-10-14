@@ -1,3 +1,5 @@
+import { SOLO_MODE, orgHomePath } from "../../lib/solo-mode";
+
 /**
  * Pure (no-React) model for the guided create-organization flow, kept separate
  * so step/labels/routing logic is unit-testable without a DOM — the same split
@@ -191,11 +193,18 @@ export function createButtonLabel(
 /**
  * Where the console routes after a successful create (when it does not leave
  * for hosted checkout): the new org's Integrations page when the buyer chose
- * the GitHub starting point, else the new org's projects dashboard.
+ * the GitHub starting point, else the new org's home (projects; its Account
+ * surface in Solo).
  */
-export function postCreatePath(mode: CreateOrgMode, source: SourceChoice, orgSlug: string): string {
-  if (mode === "child" && source.kind === "git" && source.provider === "github") {
+export function postCreatePath(
+  mode: CreateOrgMode,
+  source: SourceChoice,
+  orgSlug: string,
+  soloMode: boolean = SOLO_MODE,
+): string {
+  // Integrations are suppressed in Solo, like projects.
+  if (!soloMode && mode === "child" && source.kind === "git" && source.provider === "github") {
     return `/orgs/${orgSlug}/settings/integrations`;
   }
-  return `/orgs/${orgSlug}/projects`;
+  return orgHomePath(orgSlug, soloMode);
 }

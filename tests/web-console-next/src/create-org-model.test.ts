@@ -99,4 +99,9 @@ describe("postCreatePath", () => {
       "/orgs/acme/projects",
     );
   });
+
+  it("Solo: routes to the org's Account surface — projects and integrations are suppressed", () => {
+    expect(postCreatePath("parent", { kind: "scratch" }, "acme", true)).toBe("/orgs/acme/settings");
+    expect(postCreatePath("child", { kind: "git", provider: "github" }, "acme", true)).toBe("/orgs/acme/settings");
+  });
 });

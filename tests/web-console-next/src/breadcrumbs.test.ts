@@ -73,3 +73,10 @@ describe("buildBreadcrumbs", () => {
     expect(buildBreadcrumbs({ ...org, pathname: null })).toEqual([{ label: "Acme Inc" }]);
   });
 });
+
+describe("buildBreadcrumbs (Solo)", () => {
+  it("roots the org crumb at the Account surface, not the suppressed projects page", () => {
+    const crumbs = buildBreadcrumbs({ orgSlug: "acme", orgName: "Acme Inc", pathname: "/orgs/acme/settings", soloMode: true });
+    expect(crumbs[0]).toEqual({ label: "Acme Inc", href: "/orgs/acme/settings" });
+  });
+});

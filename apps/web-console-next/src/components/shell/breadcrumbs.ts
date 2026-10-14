@@ -1,3 +1,5 @@
+import { SOLO_MODE, orgHomePath } from "../../lib/solo-mode";
+
 /**
  * Pure breadcrumb model for org-scoped pages.
  *
@@ -53,10 +55,11 @@ export function buildBreadcrumbs(args: {
   orgSlug: string;
   orgName: string;
   pathname: string | null;
+  soloMode?: boolean;
 }): Crumb[] {
-  const { orgSlug, orgName, pathname } = args;
+  const { orgSlug, orgName, pathname, soloMode = SOLO_MODE } = args;
   const base = `/orgs/${orgSlug}`;
-  const crumbs: Crumb[] = [{ label: orgName, href: `${base}/projects` }];
+  const crumbs: Crumb[] = [{ label: orgName, href: orgHomePath(orgSlug, soloMode) }];
 
   if (!pathname || !pathname.startsWith(`${base}`)) {
     // Foreign path (shouldn't happen inside OrgScope) — org crumb only.
