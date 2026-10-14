@@ -403,8 +403,12 @@ function scopedPairs() {
     // Secret refs: `secret://<workspace>/<project>/…`. MUST precede the
     // repo-slug pass below, which would otherwise rewrite the workspace
     // segment to the repo name (see orunWorkspaceSlug above).
+    // The workspace segment is ANY segment, not just a lowercase slug: a
+    // baseline promoted from a live product carries that product's ws_… id
+    // there (cirrus-baseline: `secret://ws_KWQ45Z6M/cirrus-baseline/…`), and
+    // `[a-z0-9-]+` never matched it, so only the project half was renamed.
     {
-      re: new RegExp(`\\bsecret://[a-z0-9-]+/${rx(baseline.slug)}/`, "g"),
+      re: new RegExp(`\\bsecret://[A-Za-z0-9_-]+/${rx(baseline.slug)}/`, "g"),
       replacement: () => `secret://${orunWorkspaceSlug}/${reponame}/`,
       label: "secret ref workspace/project",
     },

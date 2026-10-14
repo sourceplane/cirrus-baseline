@@ -1,0 +1,8 @@
+{
+  "_comment": "THIS TREE'S OWN IDENTITY \u2014 the FROM side of every rebrand. tooling/rebrand/rebrand.mjs reads it to know what to rename AWAY from; a product's identity is the --values file, which is the TO side. Change a value here only together with the tree: these strings must be what the tree actually contains, or the rename silently misses and the product ships carrying this baseline's name.",
+  "slug": "cirrus-baseline",
+  "pascal": "CirrusBaseline",
+  "productName": "cirrus-baseline",
+  "domain": "cirrus-baseline.dev",
+  "subdomain": "rahulvarghesepullely"
+}
