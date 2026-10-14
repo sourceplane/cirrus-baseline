@@ -17,7 +17,7 @@ bootstrap deploy it instead of building.
 
 | Field | Value |
 |-------|-------|
-| Status | **CA1 done (#14) · CA2 in progress** |
+| Status | **CA1 done (#14) · CA2 done (#15) · CA3 + CA4 in progress** |
 | Owner(s) | `apps/web-console-next` (runtime config), `.github/workflows/tag.yml` (publish), `repo-blueprint.yaml` 05 (consume) |
 | Target | phase 05 deploy run ~8m → ~3–4m; URLs live ~5m earlier |
 
@@ -27,8 +27,8 @@ bootstrap deploy it instead of building.
 |---|---|---|
 | **CA1** | **Runtime identity.** Product name, workers.dev subdomain, API worker prefix, storage prefix, sales email and deploy environment are read per request from the Worker's `vars` (OpenNext copies string vars into `process.env`), falling back to today's compiled-in values. `wrangler.jsonc` declares them, so the rebrand sets a product's. | A build made with one identity serves another's when only `vars` differ. Behaviour unchanged with no vars. |
 | CA2 | **One build per commit.** The deploy environment comes from `CONSOLE_DEPLOY_ENV`, else the `-<env>` the console Worker's workers.dev host carries, instead of a compiled-in `NEXT_PUBLIC_DEPLOY_ENV`; the component stops setting it. (The shared composition still builds once per environment job; the builds are now identical, which is what CA3 and CA4 need.) | A build with no deploy env serves stage on the stage host and prod on the prod host. |
-| CA3 | **Publish with the tag.** `tag.yml` builds the console at the tagged commit and attaches `web-console-next-<tag>.tar.gz` and its sha256 to the `baseline-vN` release. | Every new tag has the asset; its digest is recorded. |
-| CA4 | **Deploy, don't build, on the first landing.** Phase 05's console step downloads the asset for the product's baseline tag, verifies the digest, and runs `wrangler deploy` with the product's `wrangler.jsonc`. From the next push the product builds from its own source as usual. | A rehearsal's 05 shows no Next.js build; the product records the digest it first ran. |
+| CA3 | **Publish with the tag.** `tag.yml`'s `publish-console` job builds the console at the tagged commit and uploads `web-console-next-<source-hash>.tar.gz` and its `.sha256` to the rolling `console-artifacts` release (`publish_only` re-runs it for an existing tag). Content-addressed by a hash of the sources that produce the build (`apps/web-console-next/scripts/console-artifact.mjs`), so a bootstrap finds it from the baseline's files alone, and an artifact can only match the exact code it was built from. | Every new tag's console sources have an asset. |
+| CA4 | **Deploy, don't build, while the product's console is the baseline's.** Phase 05 pins the baseline's artifact into the product (`console-artifact.pin.json`: URL, sha256, the product's own branded source hash). The component's build command fetches and verifies it while the product's sources still hash to the pin, and builds from source once they don't; a digest mismatch fails. No artifact, no pin: the product builds as before. The rebrand never rewrites the pin. | A bootstrap's 05 shows no Next.js build. |
 | CA5 | **Measure.** A real bootstrap's phase timings before and after (rehearsals now run from a separate orchestration repository, #13), promoted into `docs/phases/TIMINGS.md`. | Measured, not estimated. |
 
 ## Decisions

@@ -1318,6 +1318,18 @@ phases:
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
+        # The prebuilt console (saas-console-artifact CA4). If the baseline's
+        # console sources have a published artifact, pin it with this
+        # product's own (branded) source hash: the convergence run then
+        # deploys it instead of spending 4-5 minutes on a cold Next.js build,
+        # and the first push that changes the console builds from source
+        # again. No artifact, no pin: the product builds as it always has.
+        # Last before landing, so the hash covers the branded tree and the
+        # regenerated lockfile.
+        - id: console-artifact
+          run: ["node", "{{ .baseline.dir }}/apps/web-console-next/scripts/console-artifact.mjs", "pin", "--baseline", "{{ .baseline.dir }}", "--repo", "sourceplane/cirrus-baseline", "--root", "."]
+        - id: restage-console-artifact
+          run: ["git", "add", "-A"]
         - id: land
           uses: orun.pr/land@v1
           narrate: "The second-wave PR is merged into main."

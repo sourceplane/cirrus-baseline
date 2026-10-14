@@ -22,6 +22,11 @@ on:
         required: false
         default: main
         type: string
+      publish_only:
+        description: "Skip the cut: only publish the prebuilt console for an existing tag."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: baseline-tag
@@ -32,6 +37,7 @@ permissions:
 
 jobs:
   cut:
+    if: ${{ !inputs.publish_only }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -97,3 +103,60 @@ jobs:
           echo ""
           echo "✓ ${{ inputs.version }} → ${{ steps.commit.outputs.sha }}"
           echo "  Next: move the registry row in orun-cloud's infra/baselines-registry/baselines.yaml."
+
+  # THE PREBUILT CONSOLE (saas-console-artifact CA3). The console carries no
+  # product identity and no environment in its build (CA1/CA2), so the
+  # OpenNext output of this tag can be any product's first console deploy.
+  # It is CONTENT-ADDRESSED — named by a hash of the sources that produce it
+  # (apps/web-console-next/scripts/console-artifact.mjs) — and kept on one
+  # rolling `console-artifacts` release, so a bootstrap finds it from the
+  # baseline's own files without knowing the tag. Same sources, same name:
+  # an asset that already exists is left as it is.
+  publish-console:
+    needs: cut
+    if: ${{ always() && (needs.cut.result == 'success' || (inputs.publish_only && needs.cut.result == 'skipped')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.version }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.12.1"
+      - name: build the console
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          # No NEXT_PUBLIC_DEPLOY_ENV: the environment comes from the host.
+          unset NEXT_PUBLIC_DEPLOY_ENV
+          pnpm exec turbo run build --filter=@saas/web-console-next
+      - name: pack it
+        id: pack
+        run: |
+          set -euo pipefail
+          node apps/web-console-next/scripts/console-artifact.mjs pack --out dist/console-artifact | tee pack.log
+          echo "asset=$(sed -n 's/^asset=//p' pack.log)" >> "$GITHUB_OUTPUT"
+      - name: publish it
+        run: |
+          set -euo pipefail
+          asset="${{ steps.pack.outputs.asset }}"
+          if ! gh release view console-artifacts >/dev/null 2>&1; then
+            gh release create console-artifacts --prerelease \
+              --target "$(git rev-parse HEAD)" \
+              --title "Prebuilt consoles" \
+              --notes "Content-addressed builds of apps/web-console-next, one per set of console sources, used by a bootstrap's first console deploy. See specs/epics/saas-console-artifact."
+          fi
+          if gh release view console-artifacts --json assets --jq '.assets[].name' | grep -qx "$asset"; then
+            echo "✓ $asset is already published (same sources, same build)"
+          else
+            gh release upload console-artifacts "dist/console-artifact/$asset" "dist/console-artifact/$asset.sha256"
+            echo "✓ published $asset for ${{ inputs.version }}"
+          fi
+
