@@ -950,6 +950,15 @@ phases:
         # 08-docs, the last landing. tooling/bootstrap/promotion.mjs.
         - id: promotion
           run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/promotion.mjs", "--defer"]
+        # DEV'S VERIFY LANES STAY OFF MAIN UNTIL THE BOOTSTRAP IS DONE, for the
+        # same reason and by the same mechanism. Every merge to main re-verifies
+        # every component on the dev rung; during a bootstrap that proves
+        # nothing the pinned baseline's own CI did not, and it took eight of
+        # the eighteen lanes a fleet landing has (measured: stage and prod got
+        # five each). Deferred here, restored by 08-docs; pull requests keep
+        # their dev lanes throughout. tooling/bootstrap/dev-lanes.mjs.
+        - id: dev-lanes
+          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/dev-lanes.mjs", "--defer"]
         # Re-stage so `git ls-files` and `rebrand --verify` see the rewritten tree.
         - id: git-restage
           run: ["git", "add", "-A"]
@@ -1511,6 +1520,9 @@ phases:
         # component, so this landing redeploys nothing.
         - id: promotion
           run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/promotion.mjs", "--restore"]
+        # And dev verifies every merge to main again (01-scaffold deferred it).
+        - id: dev-lanes
+          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/dev-lanes.mjs", "--restore"]
         - id: render
           run: ["bash", "{{ .baseline.dir }}/hooks/render-deployment-docs.sh", ".", "{{ .inputs.orunWorkspace }}", "{{ .baseline.dir }}"]
         - id: land
