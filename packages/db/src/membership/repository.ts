@@ -1,4 +1,4 @@
-import type { SqlExecutor } from "../d1/executor.js";
+import { executeBatch, type SqlExecutor } from "../d1/executor.js";
 import type {
   AcceptInvitationInput,
   BootstrapOrganizationInput,
@@ -71,11 +71,6 @@ function mapRoleAssignment(row: Record<string, unknown>): RoleAssignment {
     createdAt: new Date(row.created_at as string),
     revokedAt: row.revoked_at ? new Date(row.revoked_at as string) : null,
   };
-}
-
-function parseJsonColumn(value: unknown): Record<string, unknown> {
-  if (typeof value === "string") return JSON.parse(value) as Record<string, unknown>;
-  return value as Record<string, unknown>;
 }
 
 function safeError(message: string, cause?: unknown): MembershipResult<never> {
@@ -225,52 +220,51 @@ export function createMembershipRepository(executor: SqlExecutor): MembershipRep
     },
 
     async bootstrapOrganization(input: BootstrapOrganizationInput): Promise<MembershipResult<{ org: Organization; member: OrganizationMember; roleAssignment: RoleAssignment }>> {
+      // ONE ATOMIC BATCH, NOT ONE CTE. This was a single Postgres statement
+      // (`WITH new_org AS (INSERT … RETURNING *) …` and `row_to_json`), and
+      // SQLite has neither, so on D1 it failed with `near "INSERT": syntax
+      // error` and every first sign-in ended at "Failed to create
+      // organization". D1's batch runs the three inserts in one transaction.
+      // Plain inserts, no ON CONFLICT: a taken slug or a reused id raises a
+      // unique violation, the batch rolls back all three, and the caller gets
+      // a conflict with nothing half-written.
+      const { org, member, roleAssignment } = input;
       try {
-        const result = await executor.execute<Record<string, unknown>>(
-          `WITH new_org AS (
-            INSERT INTO membership_organizations (id, name, slug, slug_lower, parent_org_id, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $19, $5, $5)
-            ON CONFLICT (id) DO NOTHING
-            RETURNING *
-          ),
-          new_member AS (
-            INSERT INTO membership_organization_members (id, org_id, subject_id, subject_type, created_at, updated_at)
-            SELECT $6, $7, $8, $9, $10, $10
-            FROM new_org
-            ON CONFLICT (id) DO NOTHING
-            RETURNING *
-          ),
-          new_role AS (
-            INSERT INTO membership_role_assignments (id, org_id, subject_id, subject_type, role, scope_kind, scope_ref, created_at)
-            SELECT $11, $12, $13, $14, $15, $16, $17, $18
-            FROM new_member
-            ON CONFLICT (id) DO NOTHING
-            RETURNING *
-          )
-          SELECT
-            row_to_json(o.*) as org,
-            row_to_json(m.*) as member,
-            row_to_json(r.*) as role_assignment
-          FROM new_org o
-          CROSS JOIN new_member m
-          CROSS JOIN new_role r`,
-          [
-            input.org.id, input.org.name, input.org.slug, input.org.slugLower, input.org.createdAt.toISOString(),
-            input.member.id, input.member.orgId, input.member.subjectId, input.member.subjectType, input.member.createdAt.toISOString(),
-            input.roleAssignment.id, input.roleAssignment.orgId, input.roleAssignment.subjectId, input.roleAssignment.subjectType, input.roleAssignment.role, input.roleAssignment.scopeKind, input.roleAssignment.scopeRef ?? null, input.roleAssignment.createdAt.toISOString(),
-            input.org.parentOrgId ?? null,
-          ],
-        );
-        if (result.rowCount === 0) {
+        const [orgResult, memberResult, roleResult] = await executeBatch(executor, [
+          {
+            text: `INSERT INTO membership_organizations (id, name, slug, slug_lower, parent_org_id, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $6)
+                   RETURNING *`,
+            params: [org.id, org.name, org.slug, org.slugLower, org.parentOrgId ?? null, org.createdAt.toISOString()],
+          },
+          {
+            text: `INSERT INTO membership_organization_members (id, org_id, subject_id, subject_type, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $5)
+                   RETURNING *`,
+            params: [member.id, member.orgId, member.subjectId, member.subjectType, member.createdAt.toISOString()],
+          },
+          {
+            text: `INSERT INTO membership_role_assignments (id, org_id, subject_id, subject_type, role, scope_kind, scope_ref, created_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                   RETURNING *`,
+            params: [
+              roleAssignment.id, roleAssignment.orgId, roleAssignment.subjectId, roleAssignment.subjectType,
+              roleAssignment.role, roleAssignment.scopeKind, roleAssignment.scopeRef ?? null, roleAssignment.createdAt.toISOString(),
+            ],
+          },
+        ]);
+        const orgRow = orgResult?.rows[0];
+        const memberRow = memberResult?.rows[0];
+        const roleRow = roleResult?.rows[0];
+        if (!orgRow || !memberRow || !roleRow) {
           return { ok: false, error: { kind: "conflict", entity: "organization" } };
         }
-        const row = result.rows[0]!;
         return {
           ok: true,
           value: {
-            org: mapOrganization(parseJsonColumn(row.org)),
-            member: mapMember(parseJsonColumn(row.member)),
-            roleAssignment: mapRoleAssignment(parseJsonColumn(row.role_assignment)),
+            org: mapOrganization(orgRow),
+            member: mapMember(memberRow),
+            roleAssignment: mapRoleAssignment(roleRow),
           },
         };
       } catch (err: unknown) {
@@ -550,49 +544,50 @@ export function createMembershipRepository(executor: SqlExecutor): MembershipRep
           return { ok: false, error: { kind: "expired" } };
         }
 
-        const result = await executor.execute<Record<string, unknown>>(
-          `WITH accepted_inv AS (
-            UPDATE membership_organization_invitations
-            SET status = 'accepted', accepted_at = $2
-            WHERE token_hash = $1 AND org_id = $3 AND email_lower = $4 AND status = 'pending' AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > $2
-            RETURNING id, org_id, email, email_lower, role, status, invited_by, expires_at, accepted_at, revoked_at, created_at
-          ),
-          new_member AS (
-            INSERT INTO membership_organization_members (id, org_id, subject_id, subject_type, created_at, updated_at)
-            SELECT $5, org_id, $6, $7, $8, $8
-            FROM accepted_inv
-            RETURNING *
-          ),
-          new_role AS (
-            INSERT INTO membership_role_assignments (id, org_id, subject_id, subject_type, role, scope_kind, scope_ref, created_at)
-            SELECT $9, org_id, $10, $11, role, 'organization', NULL, $12
-            FROM accepted_inv
-            RETURNING *
-          )
-          SELECT
-            row_to_json(ai.*) as invitation,
-            row_to_json(nm.*) as member,
-            row_to_json(nr.*) as role_assignment
-          FROM accepted_inv ai
-          CROSS JOIN new_member nm
-          CROSS JOIN new_role nr`,
-          [
-            input.tokenHash, input.acceptedAt.toISOString(),
-            input.orgId, input.emailLower,
-            input.memberId, input.subjectId, input.subjectType, input.acceptedAt.toISOString(),
-            input.roleAssignmentId, input.subjectId, input.subjectType, input.acceptedAt.toISOString(),
-          ],
-        );
-        if (result.rowCount === 0) {
+        // ONE ATOMIC BATCH, for the reason bootstrapOrganization gives: this
+        // was a Postgres data-modifying CTE that SQLite cannot parse. The
+        // member and role inserts select from the invitation row the UPDATE
+        // just accepted (status 'accepted' at exactly this acceptedAt), so
+        // when the UPDATE matches nothing they insert nothing — the same
+        // dependency the CTE chain expressed.
+        const acceptedAt = input.acceptedAt.toISOString();
+        const [invResult, memberResult, roleResult] = await executeBatch(executor, [
+          {
+            text: `UPDATE membership_organization_invitations
+                   SET status = 'accepted', accepted_at = $2
+                   WHERE token_hash = $1 AND org_id = $3 AND email_lower = $4 AND status = 'pending' AND revoked_at IS NULL AND accepted_at IS NULL AND expires_at > $2
+                   RETURNING id, org_id, email, email_lower, role, status, invited_by, expires_at, accepted_at, revoked_at, created_at`,
+            params: [input.tokenHash, acceptedAt, input.orgId, input.emailLower],
+          },
+          {
+            text: `INSERT INTO membership_organization_members (id, org_id, subject_id, subject_type, created_at, updated_at)
+                   SELECT $1, org_id, $2, $3, $4, $4
+                   FROM membership_organization_invitations
+                   WHERE token_hash = $5 AND org_id = $6 AND status = 'accepted' AND accepted_at = $4
+                   RETURNING *`,
+            params: [input.memberId, input.subjectId, input.subjectType, acceptedAt, input.tokenHash, input.orgId],
+          },
+          {
+            text: `INSERT INTO membership_role_assignments (id, org_id, subject_id, subject_type, role, scope_kind, scope_ref, created_at)
+                   SELECT $1, org_id, $2, $3, role, 'organization', NULL, $4
+                   FROM membership_organization_invitations
+                   WHERE token_hash = $5 AND org_id = $6 AND status = 'accepted' AND accepted_at = $4
+                   RETURNING *`,
+            params: [input.roleAssignmentId, input.subjectId, input.subjectType, acceptedAt, input.tokenHash, input.orgId],
+          },
+        ]);
+        const invRow = invResult?.rows[0];
+        const memberRow = memberResult?.rows[0];
+        const roleRow = roleResult?.rows[0];
+        if (!invRow || !memberRow || !roleRow) {
           return { ok: false, error: { kind: "not_found" } };
         }
-        const row = result.rows[0]!;
         return {
           ok: true,
           value: {
-            invitation: mapInvitation(parseJsonColumn(row.invitation)),
-            member: mapMember(parseJsonColumn(row.member)),
-            roleAssignment: mapRoleAssignment(parseJsonColumn(row.role_assignment)),
+            invitation: mapInvitation(invRow),
+            member: mapMember(memberRow),
+            roleAssignment: mapRoleAssignment(roleRow),
           },
         };
       } catch (err: unknown) {

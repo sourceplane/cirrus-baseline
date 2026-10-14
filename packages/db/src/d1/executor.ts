@@ -1,4 +1,4 @@
-import type { D1Binding } from "./binding.js";
+import type { D1Binding, D1PreparedStatement } from "./binding.js";
 import { toBindValue, translatePlaceholders } from "./sql.js";
 
 export interface SqlRow {
@@ -10,11 +10,42 @@ export interface SqlExecutorResult<T extends SqlRow = SqlRow> {
   rowCount: number;
 }
 
+/** One statement of a batch: the same `$n` text and params `execute` takes. */
+export interface SqlStatement {
+  text: string;
+  params?: unknown[];
+}
+
 export interface SqlExecutor {
   execute<T extends SqlRow = SqlRow>(
     text: string,
     params?: unknown[],
   ): Promise<SqlExecutorResult<T>>;
+  /**
+   * Run a list of statements decided up front, ATOMICALLY: all of them apply
+   * or none do, and the results come back in order. This is how a write that
+   * spans tables stays all-or-nothing on D1, which has no data-modifying CTEs
+   * and no interactive transactions. Optional so stub executors in unit tests
+   * need not implement it — `executeBatch` falls back to running them in
+   * order, which is enough to assert the SQL but promises no atomicity.
+   */
+  batch?(statements: SqlStatement[]): Promise<SqlExecutorResult[]>;
+}
+
+/**
+ * Run `statements` through the executor's atomic `batch` when it has one, and
+ * in order through `execute` otherwise (stub executors in unit tests).
+ */
+export async function executeBatch(
+  executor: SqlExecutor,
+  statements: SqlStatement[],
+): Promise<SqlExecutorResult[]> {
+  if (executor.batch) return executor.batch(statements);
+  const results: SqlExecutorResult[] = [];
+  for (const statement of statements) {
+    results.push(await executor.execute(statement.text, statement.params));
+  }
+  return results;
 }
 
 export interface TransactionalSqlExecutor extends SqlExecutor {
@@ -54,8 +85,29 @@ export function createSqlExecutor(
     return { rows, rowCount: rows.length };
   }
 
+  function prepare(text: string, params?: unknown[]): D1PreparedStatement {
+    const { text: sql, values } = translatePlaceholders(text, params ?? []);
+    const statement = binding.prepare(sql);
+    return values.length > 0 ? statement.bind(...values.map(toBindValue)) : statement;
+  }
+
+  async function batch(statements: SqlStatement[]): Promise<SqlExecutorResult[]> {
+    if (!binding.batch) {
+      // Every real D1 binding has batch(); only a test double lacks it. Refuse
+      // rather than quietly running the statements one by one, because the
+      // caller asked for atomicity and would not get it.
+      throw new Error("d1: this binding has no batch() — an atomic statement list cannot run on it");
+    }
+    const results = await binding.batch(statements.map((s) => prepare(s.text, s.params)));
+    return results.map((result) => {
+      const rows = (result.results ?? []) as SqlRow[];
+      return { rows, rowCount: rows.length };
+    });
+  }
+
   return {
     execute,
+    batch,
 
     /**
      * D1 HAS NO INTERACTIVE TRANSACTIONS. Cloudflare's SQLite exposes atomic
@@ -73,7 +125,7 @@ export function createSqlExecutor(
      * where atomicity was wanted, and is where a reviewer should look first.
      */
     async transaction<T>(fn: (executor: SqlExecutor) => Promise<T>): Promise<T> {
-      return fn({ execute });
+      return fn({ execute, batch });
     },
 
     async dispose(): Promise<void> {
