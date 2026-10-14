@@ -19,7 +19,7 @@
 //     happens here — that all comes from the SDK.
 
 import { CirrusBaseline, CirrusBaselineError, type ClientOptions } from "@saas/sdk";
-import { apiEdgeWorkersDevUrl, appConfig, type AppConfig } from "./app-config";
+import { DEPLOY_ENVIRONMENTS, apiEdgeWorkersDevUrl, appConfig, type AppConfig } from "./app-config";
 
 export type ApiClient = CirrusBaseline;
 
@@ -30,10 +30,7 @@ export interface ApiTarget {
 
 /** Every API target this console can talk to, under the config in force. */
 export function allTargets(config: AppConfig = appConfig()): ApiTarget[] {
-  return [
-    { name: "stage", url: apiEdgeWorkersDevUrl("stage", config) },
-    { name: "prod", url: apiEdgeWorkersDevUrl("prod", config) },
-  ];
+  return DEPLOY_ENVIRONMENTS.map((name) => ({ name, url: apiEdgeWorkersDevUrl(name, config) }));
 }
 
 /** The single environment this deploy serves, when it is locked to one. */

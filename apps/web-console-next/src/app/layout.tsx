@@ -1,18 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import "../styles/globals.css";
 import { Providers } from "./providers";
-import { consoleTitle, resolveAppConfig, type AppConfig } from "@/lib/app-config";
+import { headers } from "next/headers";
+import { consoleTitle, rememberRequestHost, resolveAppConfig, type AppConfig } from "@/lib/app-config";
 
 // The product's identity for this request, from the Worker's `vars` (OpenNext
 // copies them into process.env per request), falling back to the compiled-in
-// defaults (saas-console-artifact CA1). Server only: the client receives it
-// through <Providers config>.
-function requestConfig(): AppConfig {
-  return resolveAppConfig(process.env);
+// defaults (saas-console-artifact CA1); the deploy environment falls back to
+// the one the host names (CA2). Server only: the client receives it through
+// <Providers config>.
+async function requestConfig(): Promise<AppConfig> {
+  const host = (await headers()).get("host");
+  rememberRequestHost(host);
+  return resolveAppConfig(process.env, undefined, host);
 }
 
-export function generateMetadata(): Metadata {
-  const config = requestConfig();
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await requestConfig();
   return {
     title: consoleTitle(config),
     description: config.productDescription,
@@ -46,8 +50,8 @@ export const viewport: Viewport = {
 // failing code paths live in the layout's Providers.
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const config = requestConfig();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const config = await requestConfig();
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased">

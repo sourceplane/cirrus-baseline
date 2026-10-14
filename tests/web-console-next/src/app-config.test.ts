@@ -3,6 +3,7 @@ import {
   RUNTIME_KEYS,
   apiEdgeWorkersDevUrl,
   consoleTitle,
+  environmentFromHost,
   resolveAppConfig,
   type AppConfig,
 } from "@web-console-next/lib/app-config";
@@ -67,5 +68,32 @@ describe("derivations follow the runtime config", () => {
     expect(deployEnv(locked)).toBe("prod");
     expect(apiTargets(locked)).toEqual([{ name: "prod", url: "https://acme-cloud-api-edge-prod.acme-inc.workers.dev" }]);
     expect(isLocked(locked)).toBe(true);
+  });
+});
+
+// saas-console-artifact CA2: the deploy environment is not compiled in; a
+// console Worker learns it from CONSOLE_DEPLOY_ENV or from its own host.
+describe("environmentFromHost", () => {
+  it("reads the -<env> suffix of a console Worker's workers.dev host", () => {
+    expect(environmentFromHost("cirrus-baseline-web-console-next-stage.rahulvarghesepullely.workers.dev")).toBe("stage");
+    expect(environmentFromHost("acme-cloud-web-console-next-prod.acme-inc.workers.dev:443")).toBe("prod");
+  });
+
+  it("names nothing for an unknown suffix, a custom domain, or no host", () => {
+    expect(environmentFromHost("acme-cloud-web-console-next-dev.acme-inc.workers.dev")).toBeUndefined();
+    expect(environmentFromHost("console.acme.dev")).toBeUndefined();
+    expect(environmentFromHost("prod.acme.dev")).toBeUndefined();
+    expect(environmentFromHost("127.0.0.1:8787")).toBeUndefined();
+    expect(environmentFromHost(null)).toBeUndefined();
+  });
+
+  it("is the last resort: the var, then a compiled-in env, then the host", () => {
+    const host = "x-web-console-next-prod.acme-inc.workers.dev";
+    const unbuilt = { ...DEFAULT_APP_CONFIG, deployEnv: undefined };
+    expect(resolveAppConfig({}, unbuilt, host).deployEnv).toBe("prod");
+    expect(resolveAppConfig({ CONSOLE_DEPLOY_ENV: "stage" }, unbuilt, host).deployEnv).toBe("stage");
+    expect(resolveAppConfig({}, { ...unbuilt, deployEnv: "stage" }, host).deployEnv).toBe("stage");
+    expect(isLocked(resolveAppConfig({}, unbuilt, host))).toBe(true);
+    expect(isLocked(resolveAppConfig({}, unbuilt, "console.acme.dev"))).toBe(false);
   });
 });
