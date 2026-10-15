@@ -14,10 +14,10 @@
 // eighteen lanes and stage and prod got five each (measured on
 // pullely/cirrus-timing-4, baseline-v19).
 //
-// So 01-scaffold defers the trigger and 08-docs, the last landing, puts it
+// So 01-product defers the trigger and 08-docs, the last landing, puts it
 // back, exactly as tooling/bootstrap/promotion.mjs does for prod's gate:
 //
-//   node tooling/bootstrap/dev-lanes.mjs --defer     # 01-scaffold, before the first landing
+//   node tooling/bootstrap/dev-lanes.mjs --defer     # 01-product, before the first landing
 //   node tooling/bootstrap/dev-lanes.mjs --restore   # 08-docs, the last landing
 //   node tooling/bootstrap/dev-lanes.mjs --check     # prints deferred | active
 //

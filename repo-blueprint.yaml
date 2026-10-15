@@ -491,6 +491,13 @@ modules:
     source: baseline
     from: tooling/wire
     to: tooling/wire
+  # Deploy-time tooling a product's own CI runs: policy-worker's pre-deploy
+  # places the fleet's binding targets (tooling/deploy/fleet-stubs.mjs).
+  - name: tooling-deploy
+    mode: copy
+    source: baseline
+    from: tooling/deploy
+    to: tooling/deploy
   # The product's own context pack (operating contract + live-deployment
   # manifest), not the baseline's planning state.
   # ── The product's own context pack, FILE BY FILE (BE5's leak gate).
@@ -631,7 +638,7 @@ modules:
 # THE BOOTSTRAP IS WORK, SO IT LIVES WHERE WORK LIVES — and all of it is on
 # the plane before the first phase places a file. One epic, one milestone
 # per phase in the order the phases run, one task per landing: the whole
-# programme a reader can open while 01-scaffold is still creating the
+# programme a reader can open while 01-product is still creating the
 # repository, instead of a row appearing each time a phase was reached.
 #
 # `hooks.preInstantiate` (orun >= v2.60) runs under no phase, once per run,
@@ -651,7 +658,7 @@ modules:
 # Names, not phase ids. A task title is what a person reads in the work
 # surface, so it is an imperative sentence about the outcome; the pull
 # request that lands it carries a conventional-commit title of its own. The
-# MILESTONE keeps the phase's name (`04-workers`): it is the identity the
+# MILESTONE keeps the phase's name (`01-product`): it is the identity the
 # engine's phase events, the plane's evidence and the console's rows all
 # meet on, and the card's `programme.milestones` names the same list.
 hooks:
@@ -665,11 +672,12 @@ hooks:
         description: >-
           Everything the Cirrus baseline builds for {{ .inputs.productname }}
           in {{ .inputs.githuborg }}/{{ .inputs.reponame }}: the repository,
-          the shared packages, the D1 and KV data plane, the twelve-worker
-          fleet, the API edge, the web console, the custom domain when one is
-          asked for, and the record of what went live. One milestone per
-          phase, in the order the phases run; one task per landing, each
-          bound to the pull request that lands it.
+          the whole product in one landing — the shared packages, the D1 and
+          KV data plane, the twelve-worker fleet, the API edge and the web
+          console — then the custom domain when one is asked for, and the
+          record of what went live. One milestone per phase, in the order the
+          phases run; one task per landing, each bound to the pull request
+          that lands it.
         owner: me
     # Milestones, in phase order. `exitCriteria` are the phase's own verify
     # assertions — the same lines the task contracts' `doneWhen` carry.
@@ -678,38 +686,13 @@ hooks:
       with:
         kind: milestone
         epic: "{{ .inputs.epicSlug }}"
-        name: 01-scaffold
+        name: 01-product
         exitCriteria:
           - repository created under {{ .inputs.githuborg }} and linked to the workspace
-          - the scaffold merged, main pinned as the default branch
-    - id: m02
-      uses: orun.task/ensure@v1
-      with:
-        kind: milestone
-        epic: "{{ .inputs.epicSlug }}"
-        name: 02-foundation
-        exitCriteria:
-          - the thirteen shared packages on main, their verify lanes green
-          - D1 and KV applied on stage and prod
-          - WIRING_CLOUDFLARE_D1 and WIRING_CLOUDFLARE_KV published on stage and prod
-    - id: m04
-      uses: orun.task/ensure@v1
-      with:
-        kind: milestone
-        epic: "{{ .inputs.epicSlug }}"
-        name: 04-workers
-        exitCriteria:
-          - migrations applied and all twelve workers converged on stage and prod, first wave without bindings
-    - id: m05
-      uses: orun.task/ensure@v1
-      with:
-        kind: milestone
-        epic: "{{ .inputs.epicSlug }}"
-        name: 05-edge
-        exitCriteria:
-          - every service binding restored and the fleet converged again with them
-          - api-edge /health answers 200 on stage and prod
-          - the console root answers on stage and prod
+          - the whole product merged to main in one pull request
+          - D1 and KV applied on stage and prod, WIRING_CLOUDFLARE_D1 and WIRING_CLOUDFLARE_KV published
+          - migrations applied and the twelve workers deployed with their bindings on stage and prod
+          - api-edge /health answers 200 and the console root answers on stage and prod
     - id: m07
       uses: orun.task/ensure@v1
       with:
@@ -735,57 +718,16 @@ hooks:
       with:
         kind: task
         epic: "{{ .inputs.epicSlug }}"
-        milestone: 01-scaffold
-        name: "Scaffold the product repository"
+        milestone: 01-product
+        name: "Build the product in one landing"
         brief: >-
-          Create {{ .inputs.githuborg }}/{{ .inputs.reponame }} and land its
-          foundations as the first pull request: the intent, CI, tooling and
-          the identity every later phase reads back, branded as
-          {{ .inputs.productname }}.
+          Create {{ .inputs.githuborg }}/{{ .inputs.reponame }} and land the
+          whole product as one pull request, branded as
+          {{ .inputs.productname }}; the convergence on main then deploys it
+          in dependency order — D1 and KV, the migrations and the fleet with
+          its bindings, the API edge and the console — on stage and prod.
         prefix: BASE
-        contract: tasks/01-scaffold.TaskContract.yaml
-    - id: t02
-      uses: orun.task/ensure@v1
-      with:
-        kind: task
-        epic: "{{ .inputs.epicSlug }}"
-        milestone: 02-foundation
-        name: "Publish the shared packages and provision the data plane"
-        brief: >-
-          Land the thirteen packages every worker builds on — contracts, the
-          database layer, the SDK, the policy engine and their tests — and,
-          in the same convergence, apply a D1 database and a KV namespace per
-          environment and publish their ids as the wiring secrets the
-          workers read.
-        prefix: BASE
-        contract: tasks/02-foundation.TaskContract.yaml
-    - id: t04
-      uses: orun.task/ensure@v1
-      with:
-        kind: task
-        epic: "{{ .inputs.epicSlug }}"
-        milestone: 04-workers
-        name: "Deploy the worker fleet"
-        brief: >-
-          Land the database migrations and the twelve-worker fleet with every
-          worker-to-worker service binding stripped, so the whole fleet's
-          first deploy runs as one wave on stage and prod.
-        prefix: BASE
-        contract: tasks/04-workers.TaskContract.yaml
-    - id: t05
-      uses: orun.task/ensure@v1
-      with:
-        kind: task
-        epic: "{{ .inputs.epicSlug }}"
-        milestone: 05-edge
-        name: "Wire the fleet and deploy the API edge and the console"
-        brief: >-
-          Put back every service binding the fleet deployed without and
-          redeploy it with them, and land the API edge and the Next.js
-          console beside it — one landing, one convergence — then see the
-          edge answer /health and the console answer on stage and prod.
-        prefix: BASE
-        contract: tasks/05-edge.TaskContract.yaml
+        contract: tasks/01-product.TaskContract.yaml
     - id: t07
       uses: orun.task/ensure@v1
       with:
@@ -842,25 +784,37 @@ hooks:
 # of the bootstrap with its own task and its own PR — which is what a phase is
 # here — not because it writes files.
 #
-# FEWER LANDINGS, SAME NAMES. A landing has a fixed cost however small it is
-# (place, open a PR, check, merge, wait for the convergence to start), so work
-# that does not depend on another landing's deploy shares one: 02-foundation
-# carries the data plane that was 03-infrastructure, and 05-edge carries the
-# binding restore and the console that were 04-workers-restore and
-# 06-console. The surviving phases keep their names — they are the identities
-# the task plane's milestones, the engine's events and `--phase` all meet on —
-# so the numbering has gaps where a phase was folded into its neighbour.
+# ONE LANDING BUILDS THE PRODUCT. A landing has a fixed cost however small
+# it is (place, open a PR, merge, wait for the convergence to start), and the
+# bootstrap used to pay it five times: the scaffold, the packages and data
+# plane, the fleet without its bindings, the bindings with the edge and the
+# console, the record. Nothing in that split was order the plan could not
+# carry itself:
+#
+#   - D1 and KV before the workers: every component that reads their wiring
+#     depends on them, ENFORCED on main (the peer edges stay advisory), and a
+#     job resolves its secrets when it starts, so the ids are there.
+#   - the service-binding cycle: policy-worker binds to nothing and every
+#     binding holder waits on it; its pre-deploy uploads a placeholder for
+#     each binding target that does not exist yet
+#     (tooling/deploy/fleet-stubs.mjs), so every worker deploys ONCE, with
+#     its full bindings. The two-wave strip/restore is gone.
+#
+# So 01-product places the whole tree, brands it and lands it as one pull
+# request, and its convergence deploys everything in dependency order.
+# 07-domain stays its own landing because it is optional, and 08-docs because
+# it records what went live and puts back the two bootstrap deferrals.
 phases:
-  - name: 01-scaffold
-    title: The repo is born
-    description: Root manifests, tooling, compositions, and the rebrand values file.
-    expectedMinutes: 2
+  - name: 01-product
+    title: The product, built in one landing
+    description: The whole tree — manifests, tooling, packages, data plane, fleet, edge and console — branded, landed as one pull request, and deployed by one convergence.
+    expectedMinutes: 9
     narrate:
-      start:  "Creating the repository and writing its foundations — intent, CI, tooling, and the identity every later phase reads back. About {{ .meta.expectedMinutes }} minutes."
-      await:  "Waiting for the first push to settle on main."
-      done:   "{{ .inputs.reponame }} exists on GitHub with {{ .meta.files }} files on main, branded as {{ .inputs.productname }}. That took {{ .meta.elapsed }}."
-      failed: "The repository did not get off the ground. The log above says where it stopped."
-    modules: [ai-deployment, ai-operations, discovery-roots, github-workflows, rebrand-values, root-gitignore, root-intent, root-kiox, root-kiox-lock, root-package-json, root-pnpm-lock, root-pnpm-workspace, root-readme, root-turbo, tooling-eslint, tooling-tsconfig, tooling-wire, vscode]
+      start:  "Creating the repository and landing the whole product in one pull request — packages, the D1 and KV data plane, the twelve-worker fleet, the API edge and the console. Then one convergence deploys it all in order. Usually about {{ .meta.expectedMinutes }} minutes."
+      await:  "One convergence is deploying the product: D1 and KV first, then the fleet with its bindings, the API edge and the console on stage and prod. Nothing is stuck."
+      done:   "{{ .inputs.reponame }} is live on stage and prod — {{ .meta.files }} files on main, branded as {{ .inputs.productname }}, every URL answering. That took {{ .meta.elapsed }}."
+      failed: "The product did not come up. The failing lane above names the component, and a provider error is in its log; whatever deployed is still there."
+    modules: [admin-worker, admin-worker-tests, ai-deployment, ai-operations, api-edge, api-edge-tests, billing-worker, billing-worker-tests, cli, cloudflare-d1, cloudflare-kv, config-worker, config-worker-tests, contracts, contracts-tests, db, db-migrate, db-tests, discovery-roots, events-worker, events-worker-tests, github-workflows, identity-worker, identity-worker-tests, integrations-worker, integrations-worker-tests, membership-worker, membership-worker-tests, metering-worker, metering-worker-tests, notifications-client, notifications-client-tests, notifications-worker, notifications-worker-tests, policy-engine, policy-engine-tests, policy-worker, policy-worker-tests, projects-worker, projects-worker-tests, rebrand-values, root-gitignore, root-intent, root-kiox, root-kiox-lock, root-package-json, root-pnpm-lock, root-pnpm-workspace, root-readme, root-turbo, sdk, shared, testing, tooling-deploy, tooling-eslint, tooling-tsconfig, tooling-wire, vscode, web-console-next, web-console-next-tests, webhook-verifier, webhooks-worker, webhooks-worker-tests]
     # THE PLATFORM MUST BE ABLE TO SEE THE REPOSITORY BEFORE IT EXISTS. Every
     # phase lands a pull request that files under its task, and the platform
     # learns of a PR only through the GitHub App installation on the account
@@ -870,12 +824,15 @@ phases:
     # sourceplane/altocumulus, whose workspace was connected only to the user
     # account `adampullely`. So the owner's connection is asked for here,
     # before a repository is created, and waited for like any other consent.
+    # And the Cloudflare connection, which every deploy credential below is
+    # minted from — asked for here too, since this phase is the one that
+    # deploys.
     requires:
       probe:
-        - id: github
+        - id: providers
           uses: orun.doctor/check@v1
           with:
-            providers: [github]
+            providers: [github, cloudflare]
             githubOwner: "{{ .inputs.githuborg }}"
             waitSeconds: 600
             pollSeconds: 20
@@ -894,18 +851,25 @@ phases:
             kind: task
             epic: "{{ .inputs.epicSlug }}"
             milestone: "{{ .phase.name }}"
-            name: "Scaffold the product repository"
+            name: "Build the product in one landing"
             prefix: BASE
-            contract: tasks/01-scaffold.TaskContract.yaml
-      # The identity chain, moved here from `hooks.postInstantiate`. It was
-      # global because a one-shot instantiation has only one end; in a phased
-      # bootstrap the end of 01-scaffold IS that moment — every later phase
-      # applies into a tree that is already a git repo and already branded.
+            contract: tasks/01-product.TaskContract.yaml
+      # The identity chain, moved here from `hooks.postInstantiate`. The end
+      # of 01-product is the moment the whole tree is placed: every later
+      # phase applies into a tree that is already a git repo and already
+      # branded.
       #
       # rebrand.mjs enumerates the tree with `git ls-files`, so the output has
       # to be a git repo with a populated index BEFORE it runs. `git add -A`
       # only stages; nothing is committed here. The landing makes the commit.
       post:
+        # A RE-RUN MUST HAVE SOMETHING TO LAND: a convergence can fail after
+        # its PR merged, and a forced re-run then lands an empty diff that
+        # deploys nothing. retouch.mjs rewrites one trailing marker line in
+        # each deploying component's component.yaml so the landing has a diff
+        # and exactly those components are in the changed set.
+        - id: retouch
+          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/retouch.mjs", "--phase", "{{ .phase.name }}", "--affects", "{{ .baseline.dir }}/tasks/01-product.TaskContract.yaml"]
         - id: git-init
           run: ["git", "init", "-q"]
         - id: git-stage
@@ -964,8 +928,18 @@ phases:
           run: ["git", "add", "-A"]
         - id: rebrand-verify
           run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
+        # root-pnpm-lock places the baseline's complete lockfile and the whole
+        # tree is here, so this only confirms it (a no-op, ~0.3 s, ~160 MB —
+        # the per-phase re-resolve that was OOM-killed on the platform box is
+        # gone with the phases).
         - id: pnpm-lockfile
           run: ["pnpm", "install", "--lockfile-only"]
+        # The console deploys from the prebuilt artifact for its sources
+        # (saas-console-artifact CA4); the pin names it.
+        - id: console-artifact
+          run: ["node", "{{ .baseline.dir }}/apps/web-console-next/scripts/console-artifact.mjs", "pin", "--baseline", "{{ .baseline.dir }}", "--repo", "sourceplane/cirrus-baseline", "--root", "."]
+        - id: restage-console-artifact
+          run: ["git", "add", "-A"]
         # The repo has to exist before there is anywhere to land.
         - id: repo
           uses: orun.repo/ensure@v1
@@ -1005,77 +979,12 @@ phases:
             - link
             - "{{ .inputs.orunWorkspace }}"
             - "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
-        # EVERY PHASE IS A PULL REQUEST THAT IS CHECKED, THEN MERGED. No
-        # landing below says `wait: false`: each waits for its PR's own CI —
-        # the workflow run to its last job (orun >= v2.58.6) — and merges only
-        # on green. But on a bootstrap branch (`orun/BASE-…`) that run is the
-        # BASIC check only: `plan` resolves the intent, every component and
-        # every composition, and the lanes are skipped
-        # (.github/workflows/ci.yml), because the merge runs every one of them
-        # on main a minute later, for real, and the convergence after each
-        # merge is what this bootstrap watches to green before the next phase.
-        # The PR pass was the same work twice and a third of the wall-clock.
-        - id: land
-          uses: orun.pr/land@v1
-          narrate: "The first commit is merged into main."
-          with:
-            task: "{{ .phase.hooks.task.outputs.key }}"
-            epic: "{{ .inputs.epicSlug }}"
-            branchSlug: "{{ .phase.name }}"
-            title: "feat(scaffold): the product repository, its CI and its identity"
-
-  - name: 02-foundation
-    title: The shared packages and the data plane
-    expectedMinutes: 5
-    narrate:
-      start:  "Now the thirteen packages every worker builds on, and beside them the data layer — a D1 database and a KV namespace per environment. This is the first phase that touches Cloudflare. Usually about {{ .meta.expectedMinutes }} minutes."
-      await:  "The packages are building and Terraform is applying D1 and KV. Both run in the same convergence."
-      done:   "{{ .meta.files }} files are on main: the shared packages are built, and D1 and KV exist on stage and prod with their ids published for the workers. {{ .meta.elapsed }}."
-      failed: "The packages or the data layer did not come up. The failing lane above names which, and a provider error is in its log."
-    # TWO LANDINGS FOLDED INTO ONE. The packages and the data plane were
-    # separate phases — 02-foundation and 03-infrastructure — each paying a
-    # whole landing (place, PR, merge, a convergence of its own) for work that
-    # never depended on the other: no package reads D1, and Terraform builds
-    # none of the packages. One landing runs both in one convergence, side by
-    # side.
-    #
-    # db-migrate is still NOT here, though it is data plane: it plans the
-    # migrations against the database cloudflare-d1 creates, whose id is a
-    # job-output secret that exists only once this phase's merge has applied.
-    # It lands with 04-workers, the first phase that reads the database, where
-    # the id already exists.
-    modules: [cli, contracts, contracts-tests, db, db-tests, notifications-client, notifications-client-tests, policy-engine, policy-engine-tests, sdk, shared, testing, webhook-verifier, cloudflare-d1, cloudflare-kv]
-    # The first phase that DEPLOYS. `requires.probe` asks reality the question
-    # a lock file cannot answer: are the two provider connections live right
-    # now? `docs/phases/04-workers.md` carries the same knowledge as
-    # prose — "Lane fails resolving WIRING_*: phase 02 incomplete" — and prose
-    # cannot gate anything.
-    requires:
-      phases: [01-scaffold]
-      probe:
-        - id: providers
-          uses: orun.doctor/check@v1
-          with:
-            providers: [github, cloudflare]
-            githubOwner: "{{ .inputs.githuborg }}"
-            waitSeconds: 600
-            pollSeconds: 20
-    hooks:
-      # Brokered, one hook per template: `integrations/reconcile` mints from
-      # ONE connection with ONE scope template, and these three keys are three
-      # different scopes on purpose — the deploy token deliberately cannot
-      # touch D1. Collapsing them into one hook would be collapsing the scopes.
-      # Keys that already exist are kept.
-      pre:
-        - id: task
-          uses: orun.task/ensure@v1
-          with:
-            kind: task
-            epic: "{{ .inputs.epicSlug }}"
-            milestone: "{{ .phase.name }}"
-            name: "Publish the shared packages and provision the data plane"
-            prefix: BASE
-            contract: tasks/02-foundation.TaskContract.yaml
+        # The deploy credentials, brokered, one hook per template:
+        # `integrations/reconcile` mints from ONE connection with ONE scope
+        # template, and these three keys are three different scopes on
+        # purpose — the deploy token deliberately cannot touch D1. Keys that
+        # already exist are kept. After the link, before the landing whose
+        # convergence uses them.
         - id: secret-workers-deploy
           uses: orun.integrations/reconcile@v1
           with:
@@ -1094,310 +1003,45 @@ phases:
             provider: cloudflare
             keys: [CLOUDFLARE_ACCOUNT_ID]
             template: account-id
-      post:
-        # A RE-RUN PHASE MUST HAVE SOMETHING TO LAND. A convergence can fail
-        # AFTER its PR merged — a provider error, a starved runner pool, a
-        # smoke that raced route propagation past its retries — and the merge
-        # has already put every file this phase places on main. orun derives
-        # phase state from the tree, so a retried build sees the phase placed,
-        # and a forced re-run of it (`--phase`, `--redo` under `--resume`,
-        # the console's Retry) lands an EMPTY diff, while the product's CI
-        # plans `--changed` and deploys a component only when one of its
-        # files changed in the push. Nothing lands, nothing redeploys, and
-        # the operator is told the phase is fine.
-        #
-        # So before it stages, every phase that deploys components rewrites
-        # ONE trailing line in each of their component.yaml files —
-        # `# orun: redeploy <phase> <stamp>`, replaced rather than
-        # accumulated (the fleet used to carry this as hand-edited `# ci:
-        # re-trigger deploy` lines, duplicated by hand) — so the landing has a
-        # diff and exactly the phase's components are in the changed set. The
-        # components come from the phase's own task contract (`spec.affects`),
-        # so the deploy set and the task plane's statement of the work are one
-        # list. On a fresh run the files are new anyway and the line costs
-        # nothing. THE MARKER IS A DEPLOY TRIGGER, NOT STATE: nothing reads it
-        # back, and phase state stays derived from the tree, never stored in
-        # it. tooling/bootstrap/retouch.mjs carries the full account.
-        #
-        # The terraform roots too: `orun plan --changed` plans a component by
-        # its changed files whatever its type, and re-applying an unchanged
-        # root is an empty plan, so a redo re-runs the lane that failed and
-        # changes nothing that did not.
-        - id: retouch
-          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/retouch.mjs", "--phase", "{{ .phase.name }}", "--affects", "{{ .baseline.dir }}/tasks/02-foundation.TaskContract.yaml"]
-        # EVERY PHASE BRANDS WHAT IT PLACED, before it lands.
-        #
-        # orun writes a phase's files between its pre and post hooks (v2.58.5;
-        # before that it wrote the WHOLE tree up front, and 01-scaffold landed
-        # the entire product — 1075 files — as its first PR). So these files
-        # arrive carrying the baseline's identity AFTER 01-scaffold's rebrand
-        # has run, and landing them as placed would ship `cirrus-*` worker
-        # names into the product. The shell this replaced did the same in
-        # every phase (apply-blueprint.sh: place, stage, rebrand, stage).
-        # rebrand.mjs enumerates the tree with `git ls-files`, hence the stage
-        # before it; --verify then refuses a landing with identity left over.
-        - id: stage
-          run: ["git", "add", "-A"]
-        - id: rebrand
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--values", ".rebrand/values.json", "--allow-dirty"]
-        - id: restage
-          run: ["git", "add", "-A"]
-        - id: rebrand-verify
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
-        # The workspace lockfile grows with the tree. 01-scaffold wrote it for
-        # the three projects that existed then, and the lanes install with
-        # --frozen-lockfile, so this phase's packages were refused before a
-        # test ran: `ERR_PNPM_OUTDATED_LOCKFILE … not up to date with
-        # packages/contracts/package.json`. The landing stages it.
-        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
-        # the projects placed so far. Re-resolving only what this phase added
-        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
-        # the platform's build box ("signal: killed" / "signal: aborted"); from
-        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
-        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
-        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
-        - id: pnpm-lockfile-seed
-          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
-        - id: pnpm-lockfile
-          run: ["pnpm", "install", "--lockfile-only"]
+        # THE PRODUCT IS A PULL REQUEST THAT IS CHECKED, THEN MERGED. This
+        # landing waits for its PR's own CI —
+        # the workflow run to its last job (orun >= v2.58.6) — and merges only
+        # on green. But on a bootstrap branch (`orun/BASE-…`) that run is the
+        # BASIC check only: `plan` resolves the intent, every component and
+        # every composition, and the lanes are skipped
+        # (.github/workflows/ci.yml), because the merge runs every one of them
+        # on main a minute later, for real, and the convergence after the
+        # merge is what this bootstrap watches to green.
+        # The PR pass was the same work twice and a third of the wall-clock.
         - id: land
           uses: orun.pr/land@v1
-          narrate: "The packages and data-plane PR is merged into main."
+          narrate: "The product is merged into main."
           with:
-            # The PR's only check is `plan`; the convergence this landing
-            # triggers on main is the real gate, and the `await` below watches
-            # it. Waiting for the PR check first cost ~20 s per landing.
-            wait: false
             task: "{{ .phase.hooks.task.outputs.key }}"
             epic: "{{ .inputs.epicSlug }}"
             branchSlug: "{{ .phase.name }}"
-            title: "feat(foundation): the shared packages, and D1 and KV on stage and prod"
+            title: "feat: {{ .inputs.productname }}, the whole product from the cirrus baseline"
       await:
         - id: converge
           uses: orun.run/watch@v1
-          narrate: "The packages built, Terraform applied, and the convergence run came back green."
+          narrate: "The data plane, the fleet, the edge and the console deployed, and the convergence run came back green."
           with:
-            # The run for the commit THIS landing merged, waited for. The
-            # branch's newest run, read the moment the merge returns, is the
-            # previous phase's — GitHub registers a push's run seconds later —
-            # so an unpinned watch reported "converged" for a run that had not
-            # started. And a wait of 0 parks the phase at once, which ends a
-            # one-process bootstrap (the platform's driver included) at its
-            # first convergence; the budget is roughly twice the phase's
-            # expectedMinutes.
+            # The run for the commit THIS landing merged (an unpinned watch
+            # reads the previous push's run); the budget is roughly twice
+            # expectedMinutes plus room for one resume.
             sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
             repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
             resumeBudget: 3
-            waitSeconds: 1800
-        # WHERE THE WIRING IS PUBLISHED: each apply lease-publishes its outputs
-        # to the project's ENVIRONMENT rungs (stage and prod), not to the
-        # workspace. Read at the workspace rung, this parked with both keys
-        # published on both environments — orunbase-demo/altocumulus, live.
-        - id: verify
+            waitSeconds: 3600
+        # Each apply lease-publishes its outputs to the project's ENVIRONMENT
+        # rungs (stage and prod), not to the workspace.
+        - id: wiring
           uses: orun.secrets/exists@v1
           narrate: "The wiring secrets the workers read are published on stage and prod."
           with:
             keys: [WIRING_CLOUDFLARE_D1, WIRING_CLOUDFLARE_KV]
             project: "{{ .inputs.reponame }}"
             environments: [stage, prod]
-
-  - name: 04-workers
-    title: The worker fleet
-    expectedMinutes: 8
-    narrate:
-      start:  "Now the database migrations and the twelve-worker fleet, the longest stretch of the build — usually about {{ .meta.expectedMinutes }} minutes. The workers call each other, so this first wave deploys every one of them without those bindings, all at once."
-      await:  "Twelve workers are deploying across two environments, side by side. This is the slow part; nothing is stuck."
-      done:   "All twelve workers are live on stage and prod, without the bindings between them — the next phase puts those back. {{ .meta.elapsed }}."
-      failed: "The fleet did not deploy. The convergence log above names the worker that stopped it."
-    modules: [db-migrate, admin-worker, admin-worker-tests, billing-worker, billing-worker-tests, config-worker, config-worker-tests, events-worker, events-worker-tests, identity-worker, identity-worker-tests, integrations-worker, integrations-worker-tests, membership-worker, membership-worker-tests, metering-worker, metering-worker-tests, notifications-worker, notifications-worker-tests, policy-worker, policy-worker-tests, projects-worker, projects-worker-tests, webhooks-worker, webhooks-worker-tests]
-    requires:
-      phases: [02-foundation]
-      probe:
-        - id: wiring
-          uses: orun.secrets/exists@v1
-          with:
-            keys: [WIRING_CLOUDFLARE_D1, WIRING_CLOUDFLARE_KV]
-            project: "{{ .inputs.reponame }}"
-            environments: [stage, prod]
-    hooks:
-      pre:
-        - id: task
-          uses: orun.task/ensure@v1
-          with:
-            kind: task
-            epic: "{{ .inputs.epicSlug }}"
-            milestone: "{{ .phase.name }}"
-            name: "Deploy the worker fleet"
-            prefix: BASE
-            contract: tasks/04-workers.TaskContract.yaml
-      post:
-        # Give a re-run something to land (see 02-foundation).
-        - id: retouch
-          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/retouch.mjs", "--phase", "{{ .phase.name }}", "--affects", "{{ .baseline.dir }}/tasks/04-workers.TaskContract.yaml"]
-        # Brand what this phase placed before it lands (see 02-foundation).
-        - id: stage
-          run: ["git", "add", "-A"]
-        - id: rebrand
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--values", ".rebrand/values.json", "--allow-dirty"]
-        - id: restage
-          run: ["git", "add", "-A"]
-        - id: rebrand-verify
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
-        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
-        # the projects placed so far. Re-resolving only what this phase added
-        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
-        # the platform's build box ("signal: killed" / "signal: aborted"); from
-        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
-        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
-        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
-        - id: pnpm-lockfile-seed
-          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
-        - id: pnpm-lockfile
-          run: ["pnpm", "install", "--lockfile-only"]
-        # THE FLEET DEPLOYS IN ONE WAVE. A Cloudflare service binding cannot
-        # name a worker that does not exist yet, and the workers bind to each
-        # other — billing to policy, membership to billing, identity to
-        # notifications, and a {billing, membership, events, notifications}
-        # cycle on top. Deployed with their bindings, they had to go in
-        # dependency order: a six-deep chain of deploys on stage and again on
-        # prod, half the bootstrap's wall-clock.
-        #
-        # So the first deploy carries NO worker-to-worker binding at all
-        # (`--strip --all`), and the peer edges in each component.yaml are
-        # `dependencyMode: advisory` — nothing waits for anything but its
-        # migration — so all twelve deploy at once. 05-edge restores every
-        # binding and redeploys the fleet in a second wave, when every target
-        # exists. That is still two deploys of the fleet; it is no longer two
-        # dozen in a row.
-        #
-        # These edges are NOT in the module DAG — the bindings live in the
-        # wrangler config a deploy reads, not in the placement order, so orun
-        # never sees them. That is why cycle-break.mjs survives: it is a
-        # deploy-time edit to a file, not an ordering orun's DAG could absorb.
-        - id: strip
-          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/cycle-break.mjs", "--strip", "--all"]
-        - id: land
-          uses: orun.pr/land@v1
-          narrate: "The fleet PR is merged into main."
-          with:
-            # The PR's only check is `plan`; the convergence this landing
-            # triggers on main is the real gate, and the `await` below watches
-            # it. Waiting for the PR check first cost ~20 s per landing.
-            wait: false
-            task: "{{ .phase.hooks.task.outputs.key }}"
-            epic: "{{ .inputs.epicSlug }}"
-            branchSlug: "{{ .phase.name }}"
-            title: "feat(workers): the migrations and the twelve-worker fleet, first wave without bindings"
-      await:
-        - id: converge
-          uses: orun.run/watch@v1
-          narrate: "Twelve workers deployed and the convergence run came back green."
-          with:
-            sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
-            resumeBudget: 3
-            waitSeconds: 2400
-
-  # THE SECOND WAVE, THE EDGE AND THE CONSOLE — ONE LANDING. Three phases used
-  # to land here one after another: 04-workers-restore (the bindings back),
-  # 05-edge, 06-console. None of them waits on another's DEPLOY: every worker
-  # a binding names already exists after 04-workers, the edge binds only to
-  # those workers, and the console reaches the edge by URL. So they land as
-  # one pull request and converge in one run, side by side, and the bootstrap
-  # pays one landing for them instead of three.
-  #
-  # The restore could not be a `post` hook of 04-workers — a binding may not
-  # name a worker that is not deployed, and `post` hooks all run before
-  # `await` — so it rides the NEXT landing, which is this one.
-  - name: 05-edge
-    title: The bindings, the API edge and the console
-    expectedMinutes: 9
-    narrate:
-      start:  "Now the second wave: every worker gets its service bindings back, the API edge goes up in front of the fleet, and the web console beside it. One landing, one convergence; budget about {{ .meta.expectedMinutes }} minutes — the console build is the long pole."
-      await:  "The fleet is redeploying with its bindings while the edge and the console deploy. The console build is the long pole; nothing is stuck."
-      done:   "The fleet is wired the way the blueprint describes it, and the edge and the console are live on stage and prod. {{ .meta.elapsed }}."
-      failed: "The second wave did not come up. The failing lane above names the worker, the edge or the console; the workers from the first wave are still deployed."
-    modules: [api-edge, api-edge-tests, web-console-next, web-console-next-tests]
-    requires:
-      phases: [04-workers]
-    hooks:
-      pre:
-        - id: task
-          uses: orun.task/ensure@v1
-          with:
-            kind: task
-            epic: "{{ .inputs.epicSlug }}"
-            milestone: "{{ .phase.name }}"
-            name: "Wire the fleet and deploy the API edge and the console"
-            prefix: BASE
-            contract: tasks/05-edge.TaskContract.yaml
-      post:
-        # Give a re-run something to land (see 02-foundation). The contract's
-        # `affects` names the edge, the console AND every worker that binds to
-        # another: on a fresh run the restored templates change those workers
-        # anyway, but a redo after a failed convergence finds the bindings
-        # already restored (the restore is a no-op), and the marker is what
-        # makes them redeploy with them.
-        - id: retouch
-          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/retouch.mjs", "--phase", "{{ .phase.name }}", "--affects", "{{ .baseline.dir }}/tasks/05-edge.TaskContract.yaml"]
-        # Put back every binding 04-workers stripped. The markers carry the
-        # exact text removed — already branded, since 04 stripped after its
-        # rebrand — so this is byte-for-byte the template 04 placed.
-        - id: restore
-          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/cycle-break.mjs", "--restore"]
-        # Brand what this phase placed before it lands (see 02-foundation).
-        - id: stage
-          run: ["git", "add", "-A"]
-        - id: rebrand
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--values", ".rebrand/values.json", "--allow-dirty"]
-        - id: restage
-          run: ["git", "add", "-A"]
-        - id: rebrand-verify
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
-        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
-        # the projects placed so far. Re-resolving only what this phase added
-        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
-        # the platform's build box ("signal: killed" / "signal: aborted"); from
-        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
-        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
-        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
-        - id: pnpm-lockfile-seed
-          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
-        - id: pnpm-lockfile
-          run: ["pnpm", "install", "--lockfile-only"]
-        # The prebuilt console (saas-console-artifact CA4). If the baseline's
-        # console sources have a published artifact, pin it with this
-        # product's own (branded) source hash: the convergence run then
-        # deploys it instead of spending 4-5 minutes on a cold Next.js build,
-        # and the first push that changes the console builds from source
-        # again. No artifact, no pin: the product builds as it always has.
-        # Last before landing, so the hash covers the branded tree and the
-        # regenerated lockfile.
-        - id: console-artifact
-          run: ["node", "{{ .baseline.dir }}/apps/web-console-next/scripts/console-artifact.mjs", "pin", "--baseline", "{{ .baseline.dir }}", "--repo", "sourceplane/cirrus-baseline", "--root", "."]
-        - id: restage-console-artifact
-          run: ["git", "add", "-A"]
-        - id: land
-          uses: orun.pr/land@v1
-          narrate: "The second-wave PR is merged into main."
-          with:
-            # The PR's only check is `plan`; the convergence this landing
-            # triggers on main is the real gate, and the `await` below watches
-            # it. Waiting for the PR check first cost ~20 s per landing.
-            wait: false
-            task: "{{ .phase.hooks.task.outputs.key }}"
-            epic: "{{ .inputs.epicSlug }}"
-            branchSlug: "{{ .phase.name }}"
-            title: "feat(edge): the fleet's bindings, the API edge and the web console"
-      await:
-        - id: converge
-          uses: orun.run/watch@v1
-          narrate: "The fleet, the edge and the console deployed and the convergence run came back green."
-          with:
-            sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
-            resumeBudget: 3
-            waitSeconds: 2700
         - id: verify
           uses: orun.http/probe@v1
           narrate: "Every console and edge URL answered."
@@ -1408,10 +1052,6 @@ phases:
               - "https://{{ .inputs.reponame }}-api-edge-prod.{{ .inputs.subdomain }}.workers.dev/health"
               - "https://{{ .inputs.reponame }}-web-console-next-prod.{{ .inputs.subdomain }}.workers.dev"
 
-  # cloudflare-domain trails the console because it wires the DEPLOYED
-  # console's custom domain. `when:` is the condition the umbrella carried as
-  # `[ "{{ inputs.domain }}" = "true" ]` in shell — a phase that declares when
-  # it runs beats a caller remembering not to ask for it.
   - name: 07-domain
     title: The custom domain
     expectedMinutes: 5
@@ -1423,7 +1063,7 @@ phases:
     modules: [cloudflare-domain]
     when: inputs.domain
     requires:
-      phases: [05-edge]
+      phases: [01-product]
     hooks:
       pre:
         - id: task
@@ -1436,14 +1076,14 @@ phases:
             prefix: BASE
             contract: tasks/07-domain.TaskContract.yaml
       post:
-        # Give a re-run something to land (see 02-foundation).
+        # Give a re-run something to land (see 01-product).
         # cloudflare-domain ships with `subscribe.environments: []`, so today
         # its convergence plans no lane and the marker changes nothing; once
         # an operator subscribes it (docs/phases/07-domain.md) a redo of this
         # phase has to re-plan it, and the marker is how.
         - id: retouch
           run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/retouch.mjs", "--phase", "{{ .phase.name }}", "--affects", "{{ .baseline.dir }}/tasks/07-domain.TaskContract.yaml"]
-        # Brand what this phase placed before it lands (see 02-foundation).
+        # Brand what this phase placed before it lands (see 01-product's rebrand).
         - id: stage
           run: ["git", "add", "-A"]
         - id: rebrand
@@ -1487,7 +1127,7 @@ phases:
 
   # Places nothing. It records what the other phases built, from PROBED facts
   # rather than from what the blueprint intended — which is why it runs last
-  # and why its verify is the same probe 05-edge ends on.
+  # and why its verify is the same probe 01-product ends on.
   - name: 08-docs
     title: The deployment, recorded
     expectedMinutes: 1
@@ -1498,7 +1138,7 @@ phases:
       failed: "The deployment record did not land. Everything built is still there; only the write-up is missing."
     modules: []
     requires:
-      phases: [05-edge]
+      phases: [01-product]
     hooks:
       pre:
         - id: task
@@ -1511,7 +1151,7 @@ phases:
             prefix: BASE
             contract: tasks/08-docs.TaskContract.yaml
       post:
-        # THE PRODUCT GOES LIVE WITH ITS PROMOTION GATE. 01-scaffold deferred
+        # THE PRODUCT GOES LIVE WITH ITS PROMOTION GATE. 01-product deferred
         # `prod.promotion.dependsOn: [stage]` so every bootstrap convergence
         # deployed both environments side by side; this, the last landing,
         # puts it back, and from here on a change reaches prod only after it
@@ -1520,7 +1160,7 @@ phases:
         # component, so this landing redeploys nothing.
         - id: promotion
           run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/promotion.mjs", "--restore"]
-        # And dev verifies every merge to main again (01-scaffold deferred it).
+        # And dev verifies every merge to main again (01-product deferred it).
         - id: dev-lanes
           run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/dev-lanes.mjs", "--restore"]
         - id: render

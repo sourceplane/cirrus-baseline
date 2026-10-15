@@ -217,8 +217,9 @@ const HAS_API_EDGE = fs.existsSync(path.join(ROOT, "apps", "api-edge", "componen
 // DAG must declare it — otherwise fresh-account convergence and
 // per-component forks deploy in the wrong order. Two binding edges form
 // cycles and cannot be declared in an acyclic DAG; they are acknowledged
-// here and handled operationally (deploy the cycle members together; the
-// first convergence may need one full-workflow re-run).
+// here. On a fresh account policy-worker's pre-deploy places every binding
+// target before any binding holder deploys (tooling/deploy/fleet-stubs.mjs),
+// so the cycle never has to be deployed in an order.
 
 const ACKNOWLEDGED_BINDING_CYCLES = new Set([
   "billing-worker -> membership-worker", // mutual pair: billing <-> membership

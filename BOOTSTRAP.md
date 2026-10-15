@@ -56,7 +56,7 @@ where this baseline is cheaper than a Postgres-backed one.
 - **The repo allow-listed in the workspace** (console → Settings → Git
   repos). This is the ONE console action a workspace-scoped token cannot
   self-heal (`cloud link` is refused for them) — do it up front or
-  `02-foundation`'s provider check will stop and ask for it. Everything
+  `01-product`'s link check will stop and ask for it. Everything
   else is headless.
 
 ## 1. One command: `--resume`
@@ -85,18 +85,18 @@ of this baseline possible in CI with no workspace and no provider.
 `--resume` is safe to re-run from anywhere, including a fresh container with
 a fresh `--out`: **phase state is derived from the tree, never stored.** A
 phase whose files are all present but differ from the blueprint — which is
-every phase after `01-scaffold` brands the tree — derives as `drifted`, and
+every phase once `01-product` brands the tree — derives as `drifted`, and
 `--resume` leaves it placed rather than reverting your product's identity to
 `cirrus`.
 
 ## 1b. Or phase by phase — the same document, at your pace
 
-The phases are `01-scaffold`, `02-foundation` (the packages and the D1/KV
-data plane), `04-workers` (the fleet's first wave, bindings stripped),
-`05-edge` (the bindings restored, the edge and the console), `07-domain`
-(only when `--set domain=true`), `08-docs`. The gaps in the numbering are
-phases folded into a neighbour's landing (`03-infrastructure`,
-`04-workers-restore`, `06-console`). Each is idempotent, each follows
+The phases are `01-product` (the repository, then the WHOLE product in one
+pull request, deployed by one convergence in dependency order), `07-domain`
+(only when `--set domain=true`) and `08-docs` (the record; it also puts back
+the prod promotion gate and dev's lanes). The gaps in the numbering are the
+phases that used to be landings of their own (`02-foundation` to
+`06-console`), folded into `01-product` in baseline-v22. Each is idempotent, each follows
 one contract — **place its modules → land them → watch the convergence →
 verify the outcome** — and each carries its own narration. Full guide:
 [docs/phases/README.md](docs/phases/README.md), with a detailed page per
@@ -105,7 +105,7 @@ phase in that folder.
 ```bash
 # phase 01 takes the identity once:
 orun new --blueprint repo-blueprint.yaml --out ~/sourceplane/acme --run-hooks \
-  --phase 01-scaffold \
+  --phase 01-product \
   --set reponame=acme --set productname="Acme Cloud" \
   --set productdomain=acme.dev --set githuborg=sourceplane \
   --set orunWorkspace=ws_XXXXXXXX --set subdomain=<workers-dev-subdomain>
@@ -114,9 +114,8 @@ orun new --blueprint repo-blueprint.yaml --out ~/sourceplane/acme --run-hooks \
 # blueprint's required inputs are still validated, so keep passing them
 # (a --values file is easier than repeating --set):
 orun new --blueprint repo-blueprint.yaml --out ~/sourceplane/acme --run-hooks \
-  --phase 02-foundation --values ~/acme.values.yaml
-# … 04 (workers), 05 (bindings, edge, console), 08 (docs);
-#    07 (domain) only with domain=true.
+  --phase 08-docs --values ~/acme.values.yaml
+#    07 (domain) before it, only with domain=true.
 ```
 
 Three flags shape a run:
@@ -135,12 +134,12 @@ presents it as a copy of anything. That promise is a test —
 set.
 
 The workspace needs its two integrations connected once (GitHub and
-Cloudflare). `02-foundation`'s `requires.probe` polls for up to 10
+Cloudflare). `01-product`'s `requires.probe` polls for up to 10
 minutes, so the consent can be clicked while it waits:
 
 - **Cloudflare**: paste the Account API token (in-console recipe). If the
   token's permission groups omit D1 Write, the `d1-edit` mint is refused
-  (`parent_grant_insufficient`) and `02-foundation` stops with that
+  (`parent_grant_insufficient`) and `01-product` stops with that
   message — re-issue the token with D1 Write, re-connect, and re-run the
   phase. Its three secret hooks are a *reconcile*: keys that exist are kept,
   keys that are missing are re-minted against the ACTIVE connection.
@@ -185,7 +184,7 @@ every phase's state and is the flag for that.
 |---|---|
 | image deps | `git`, `gh`, `node` (≥20), `pnpm`, `python3`, `curl`, `orun` ≥ v2.58.11 to run the bootstrap. The product's `ci.yml` lane pin (≥ v2.56.2) is its own floor |
 | `ORUN_TOKEN` | orun access token; the typed actions authenticate with it (no login flow) |
-| `GITHUB_TOKEN` | fine-grained PAT: **read** on `sourceplane/cirrus` (the clone); on the PRODUCT repo: **contents write** (pushes), **pull-requests write** (landings), **actions read+write** (`orun.run/watch@v1` watches runs and auto-resumes via `gh run rerun`), **checks read**; **repo create** on the org if `01-scaffold` creates the repo (or pre-create it — supported) |
+| `GITHUB_TOKEN` | fine-grained PAT: **read** on `sourceplane/cirrus` (the clone); on the PRODUCT repo: **contents write** (pushes), **pull-requests write** (landings), **actions read+write** (`orun.run/watch@v1` watches runs and auto-resumes via `gh run rerun`), **checks read**; **repo create** on the org if `01-product` creates the repo (or pre-create it — supported) |
 | pinning | the clone's `--branch <tag>` pins EVERYTHING: the blueprint, its modules, and the hooks' scripts all come from that one commit. Use a tag for reproducible bootstraps; `main` for latest |
 | workdir | `--out` is the product tree and is stable across phases and re-runs (idempotent). The baseline checkout is `{{ .baseline.dir }}` to every hook |
 | classic-token caveat | a CLASSIC PAT or gh OAuth token additionally needs the `workflow` scope to push `.github/workflows/` (hit live); fine-grained PATs need only `contents: write` |
@@ -237,21 +236,21 @@ that logic. Then move the registry row in orun-cloud's
 
 | Symptom | Cause → fix |
 |---|---|
-| `02-foundation` waits on connections, then stops | Consent not granted yet — console → Integrations, then re-run the phase (idempotent). The probe is a *wait*, not a failure: a consent nobody has clicked is not a broken build. |
-| A phase refuses with `requires: 02-foundation (pending)` | Its predecessor has not been placed into this `--out`. Run that phase, or `--resume`. A predecessor that is `drifted` SATISFIES the requirement — its files are all there. |
-| `--resume` prints "leaving 01-scaffold as placed" | Expected after branding. Every file is present but differs from the blueprint, so the phase is `drifted` and re-placing it would revert your product's identity. Re-place one deliberately with `--phase <name>`. |
-| Secrets listed `orphaned` | Their connection was revoked/replaced (e.g. OAuth app scopes changed). Re-connect the provider and re-run `--phase 02-foundation`: `orun.integrations/reconcile@v1` re-mints only the missing keys against the ACTIVE connection. |
+| `01-product` waits on connections, then stops | Consent not granted yet — console → Integrations, then re-run the phase (idempotent). The probe is a *wait*, not a failure: a consent nobody has clicked is not a broken build. |
+| A phase refuses with `requires: 01-product (pending)` | Its predecessor has not been placed into this `--out`. Run that phase, or `--resume`. A predecessor that is `drifted` SATISFIES the requirement — its files are all there. |
+| `--resume` prints "leaving 01-product as placed" | Expected after branding. Every file is present but differs from the blueprint, so the phase is `drifted` and re-placing it would revert your product's identity. Re-place one deliberately with `--phase <name>`. |
+| Secrets listed `orphaned` | Their connection was revoked/replaced (e.g. OAuth app scopes changed). Re-connect the provider and re-run `--phase 01-product`: `orun.integrations/reconcile@v1` re-mints only the missing keys against the ACTIVE connection. |
 | Secret WRITE fails `not_found` while listings work | The API key's role is below ADMIN (resource-hiding masks the denial). Re-mint the key with the admin role; the reconcile says so in the error and is idempotent. |
 | D1 or KV lane: resource name already taken | The account already has `<repo>-<env>`. Adoption imports it at plan time when it's the *same* product re-bootstrapping; otherwise rename or delete the stray resource. |
 | Terraform: resource already exists (10014 etc.) with empty platform state | `adopt.tf` handles this by importing at plan time — present in the d1 and kv roots. Roots without adoption must be state-migrated or the resource deleted. |
 | Convergence run fails, lanes look transient | `orun.run/watch@v1` already resumes it ×3 (`gh run rerun --failed` = true resume: exec-id + `--retry`). Re-running the phase re-enters the watch on the same run. |
 | Convergence failed AFTER the phase's PR merged; re-running the phase lands nothing and redeploys nothing | Expected on its own: the merge put every file in place, phase state is derived from the tree, and `plan --changed` deploys only what changed. Re-run the phase (`--phase <name>`, `--redo <name>` under `--resume`, or the console's Retry): its `retouch` hook writes `# orun: redeploy <phase> <stamp>` as the last line of each affected `component.yaml`, so the landing has a diff and the phase's components redeploy. If the landing is still empty, the hook did not run (`--run-hooks`) or the contract names no component — `node tooling/bootstrap/retouch.mjs --check …` in the product tree says which. |
-| Worker verify lane: missing `WIRING_*` secret | Its terraform upstream hasn't applied (check that lane first) — inside one convergence run the DAG guarantees order; across manual partial runs it does not. `04-workers` guards this with a `requires.probe` on both keys. |
+| Worker verify lane: missing `WIRING_*` secret | Its terraform upstream hasn't applied (check that lane first) — inside one convergence run the DAG guarantees order (every reader declares an enforced `dependsOn` on the infra component); across manual partial runs it does not. |
 | D1 lane or db-migrate: `Authentication error (10000)` | The lane resolved `CLOUDFLARE_API_TOKEN` (workers-deploy), which cannot touch D1. Both D1 components must bind `CLOUDFLARE_D1_TOKEN`. |
-| 01-scaffold parks: `waiting for github for <org> (connected: <account>)` | The workspace's GitHub connection is to a different account than the one the product repository will live under, so the platform would never see its pull requests. Connect the GitHub App installation on `<org>` to the workspace (console → Integrations → GitHub), then `--resume`. |
+| 01-product parks: `waiting for github for <org> (connected: <account>)` | The workspace's GitHub connection is to a different account than the one the product repository will live under, so the platform would never see its pull requests. Connect the GitHub App installation on `<org>` to the workspace (console → Integrations → GitHub), then `--resume`. |
 | CLI login dies with 429 `rate_limited` | Fixed ≥ v2.48.1 (redeem honors Retry-After). Upgrade the CLI. |
 | `unknown flag: --phase`, `cannot unmarshal !!map into []scaffold.Hook`, or `orun.run/watch@v1 has no parameter "sha"` | The CLI is below the v2.58.11 floor. This blueprint is not readable by an older one. |
-| A fresh build stops before 01-scaffold: `✕ phase "04-workers" precondition "wiring" is not met: … project "<repo>" not found` | The CLI is below v2.58.10, which asks the preflight about the product's project before phase 01 has created it and calls the answer a failure. Upgrade; the probe is then deferred to phase 04. |
+| A fresh build fails in a worker deploy with `10143` (service binding target not found) | The worker does not wait on `policy-worker`, whose pre-deploy places every binding target (`tooling/deploy/fleet-stubs.mjs`): its `dependsOn: policy-worker` must be `mode: enforced`. `testing/fleet-stubs.test.sh` checks every binding holder. |
 | The product's `intent.yaml` says `workspace: ws_SET_ME`, or its secret refs name the repository (`secret://<repo>/…`) | `orunWorkspace` was empty: set it, or run the build in the workspace (ORUN_WORKSPACE) with a CLI ≥ v2.58.11, which fills it from there. |
 | `✕ input "productdomain" is required` | Required inputs are validated before anything else, so this names the key nobody typed. All four requireds — `reponame`, `productname`, `productdomain`, `githuborg` — must be set on every invocation, including single-phase ones. |
 | Console/edge smoke fails right after the FIRST deploy of a worker | workers.dev route propagation race — the deploy lane's smoke retries with backoff (stack-tectonic ≥ 0.18.2); a convergence resume clears older pins. |

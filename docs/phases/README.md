@@ -28,16 +28,13 @@ Every phase lands as a pull request that is checked, then merged: each landing w
 
 | phase | lands | verified by |
 |---|---|---|
-| [`01-scaffold`](01-scaffold.md) | **GitHub repo created** + repo born: intent, CI, tooling, identity | repo pushed + workspace-linked |
-| [`02-foundation`](02-foundation.md) | 13 shared packages + the data plane (d1, kv) | convergence green + published `WIRING_*` secrets |
-| [`04-workers`](04-workers.md) | db-migrate + the 12-worker fleet, first wave: every worker-to-worker binding stripped, all deployed at once | convergence green |
-| [`05-edge`](05-edge.md) | second wave: every binding restored and the fleet redeployed, + api-edge + web console | `/health` and console live on stage+prod |
+| [`01-product`](01-product.md) | **GitHub repo created**, then the WHOLE product in one PR: intent, CI, tooling, identity, 13 packages, D1 + KV, db-migrate, the 12-worker fleet with its bindings, api-edge and the web console — one convergence deploys it in dependency order | `WIRING_*` published, convergence green, `/health` and console live on stage+prod |
 | [`07-domain`](07-domain.md) | custom domain (OPTIONAL — `when: inputs.domain`) | convergence green |
 | [`08-docs`](08-docs.md) | live-deployment docs (manifest + operating contract) | committed manifest matches probed reality |
 
 ## Inputs
 
-`01-scaffold` takes the product identity once and writes it into the repo
+`01-product` takes the product identity once and writes it into the repo
 (`.rebrand/values.json`); every later phase reads it back from the placed
 tree. But the blueprint's **required** inputs — `reponame`, `productname`,
 `productdomain`, `githuborg` — are validated before any phase runs, so
@@ -61,7 +58,7 @@ alone:
 
 ```bash
 orun new --blueprint repo-blueprint.yaml \
-  --out $HOME/sourceplane/acme --run-hooks --phase 02-foundation \
+  --out $HOME/sourceplane/acme --run-hooks --phase 01-product \
   --values ~/acme.values.yaml
 ```
 
@@ -83,7 +80,7 @@ export ORUN_TOKEN=… GITHUB_TOKEN=…
 git clone --depth 1 --branch <baseline-tag> https://github.com/sourceplane/cirrus
 cd cirrus
 orun new --blueprint repo-blueprint.yaml --out /work/acme --run-hooks \
-  --phase 02-foundation --values /work/acme.values.yaml
+  --phase 01-product --values /work/acme.values.yaml
 ```
 
 Inside a baseline checkout the same command uses the local tree: the two
@@ -92,28 +89,31 @@ modes are the same files.
 ## Unattended: `--resume`
 
 `--resume` places every phase not already derived as done, in dependency
-order, honouring each barrier. Expected wall-clock on a clean run:
-**~25–30 minutes** (an estimate until a run measures it). It was 50–65
-until the bootstrap stopped paying for the same work twice:
+order, honouring each barrier. Expected wall-clock on a clean run: **about
+9 minutes** (an estimate until a run measures it; baseline-v21 measured 14m51s
+over five landings, and it was 50–65 before that):
 
-- **Five landings, not eight.** The data plane lands with the packages
-  (`02-foundation`), and the binding restore and the console land with the
-  edge (`05-edge`). The numbering keeps its gaps (`03`, `06`) so the
-  surviving names stay the identities the task plane and `--phase` use.
+- **One landing builds the product.** `01-product` places the whole tree and
+  lands it as one PR; the convergence that follows deploys everything in
+  dependency order. Only the optional domain (`07-domain`) and the record
+  (`08-docs`) are landings of their own. The numbering keeps its gaps so the
+  names stay the identities the task plane and `--phase` use.
 - **A landing's PR is checked by `plan` alone.** The lanes run
   once, on main.
-- **The fleet deploys in two parallel waves** instead of a six-deep chain:
-  every worker-to-worker binding is stripped for the first deploy
-  (`cycle-break.mjs --strip --all`) and the peer `dependsOn` edges are
-  `dependencyMode: advisory`; `05-edge` restores the bindings and redeploys
-  the fleet at once.
-- **Stage and prod deploy side by side** during the bootstrap: `01-scaffold`
+- **Every worker deploys once, with its bindings.** The data plane comes
+  first because every component reading its wiring declares an ENFORCED
+  `dependsOn` on it, and the service-binding cycles are broken by
+  placeholders: every binding holder waits on `policy-worker`, whose
+  pre-deploy uploads one for each target that does not exist yet
+  (`tooling/deploy/fleet-stubs.mjs`). Peer edges stay
+  `dependencyMode: advisory`, so the fleet deploys side by side.
+- **Stage and prod deploy side by side** during the bootstrap: `01-product`
   defers `prod.promotion` and `08-docs` restores it
   (`tooling/bootstrap/promotion.mjs`).
 - **Dev's verify lanes stay off main until the bootstrap is done.** Every
   merge to main re-verifies every component on the dev rung, which proves
   nothing the pinned baseline's own CI did not and took eight of a fleet
-  landing's eighteen lanes. `01-scaffold` defers dev's `github-push-main`
+  landing's eighteen lanes. `01-product` defers dev's `github-push-main`
   trigger and `08-docs` restores it (`tooling/bootstrap/dev-lanes.mjs`);
   pull requests keep their dev lanes throughout.
 - **More lanes at once** (`max-parallel: 16`) and one shared pnpm store
@@ -126,10 +126,11 @@ Why it can run unattended:
   (~4.5 m), OCI resolves retry transient 5xx, and `orun.run/watch@v1`
   auto-resumes failed lanes ×3 (`resumeBudget: 3`). A phase that failed
   partway resumes by simply being re-run.
-- **Waits are declared, not slept.** `02-foundation` waits on the
-  provider consent through `orun.doctor/check@v1` (up to 10 minutes), and
-  `04-workers` will not start until `orun.secrets/exists@v1` finds both
-  `WIRING_*` keys. A consent nobody has clicked is a *wait*, not a failure.
+- **Waits are declared, not slept.** `01-product` waits on the GitHub and
+  Cloudflare consents through `orun.doctor/check@v1` (up to 10 minutes each),
+  and inside its convergence nothing that reads the wiring starts before the
+  apply that publishes it. A consent nobody has clicked is a *wait*, not a
+  failure.
 - **Verification is the phase's own last act.** `await` hooks re-probe the
   live endpoints and re-list the published secrets, trusting no earlier
   step's word.
@@ -142,7 +143,7 @@ Why it can run unattended:
   `--out` records which phases have run. A stored file would be a cache,
   and it must always be safe to delete.
 - A phase whose files are all present but differ from the blueprint derives
-  as **`drifted`** — which is every phase once `01-scaffold` brands the
+  as **`drifted`** — which is every phase once `01-product` brands the
   tree. Drift SATISFIES a successor's requirement (the files are all
   there), and `--resume` leaves a drifted phase placed rather than
   reverting your product's identity to `cirrus`. Re-place one deliberately
@@ -163,11 +164,11 @@ Why it can run unattended:
 1. `orun auth login --device` (approve at app.orun.dev/cli/device).
 2. A workspace for the product; note its `ws_…` id.
 3. The two integrations connected in that workspace — GitHub and
-   Cloudflare. `02-foundation` POLLS for these up to 10 minutes, so
+   Cloudflare. `01-product` POLLS for these up to 10 minutes, so
    you can click the consent while it waits.
-4. An **admin-role** API key. Note that the first credential WRITE is now
-   `02-foundation`'s secret reconcile: a builder/viewer key gets
-   through `01-scaffold` and dies at phase two with
+4. An **admin-role** API key. Note that the first credential WRITE is
+   `01-product`'s secret reconcile, after the repository is created and
+   linked: a builder/viewer key dies there with
    the re-mint-as-admin hint. The shell layer probed this at minute two;
    restoring an early write-probe as a declared precondition is tracked as
    the epic's open question 14.
@@ -190,10 +191,9 @@ a closed registry inside the orun binary, not a script this repo ships:
 
 The hooks that still `run:` a command are the ones that are this
 baseline's own business rather than a verb any bootstrap needs: git init /
-stage / restage and `pnpm install --lockfile-only` in `01-scaffold`,
+stage / restage and `pnpm install --lockfile-only` in `01-product`,
 `tooling/rebrand/rebrand.mjs` (the identity rename, then `--verify`),
-`tooling/bootstrap/cycle-break.mjs` (strip and restore the service bindings
-across the fleet's two waves), `tooling/bootstrap/promotion.mjs` (defer and
+`tooling/bootstrap/promotion.mjs` (defer and
 restore the prod promotion gate), `tooling/bootstrap/dev-lanes.mjs` (defer and
 restore dev's push-to-main activation), `tooling/bootstrap/retouch.mjs` (the
 redeploy marker every deploying phase writes before it lands), and
@@ -207,7 +207,7 @@ The whole programme is on the plane before the first phase places a file:
 the blueprint's run-level `hooks.preInstantiate` list (orun ≥ v2.60) opens
 the `epicSlug` epic with its description, one milestone per phase in phase
 order with the phase's verify assertions as exit criteria, and one task per
-landing with a brief — so a reader can open the epic while `01-scaffold` is
+landing with a brief — so a reader can open the epic while `01-product` is
 still creating the repository. Every phase's `pre` hook is then an
 `orun.task/ensure@v1` on its own task: the same identity (title within the
 epic), so it finds rather than creates, and yields the key its landing binds

@@ -49,7 +49,7 @@ mailboxes stay as they are.
 
 ## What carried over unchanged
 
-The bootstrap machinery: the phase sequence `01-scaffold … 08-docs` and the
+The bootstrap machinery: the phase sequence `01-product … 08-docs` and the
 contract each phase follows — place its modules, land them, watch the
 convergence, verify the outcome. It was proven end-to-end on Lumen as a shell
 layer over eight workflows; it is now one `repo-blueprint.yaml` read by

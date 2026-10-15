@@ -1,0 +1,46 @@
+# Task contract template for the 01-product landing (saas-baseline-tracking BT1).
+# Unbound to a key on purpose: `orun task create --contract` seals and
+# attaches it to the key the allocator issues. gates: [] is a DECLARATION —
+# merge alone finishes this task; the main convergence is the gate the flow
+# watches, not one the plane observes as a PR check.
+#
+# The whole product in one landing. `affects` lists every component the
+# convergence deploys or verifies: it is what retouch.mjs marks so a re-run
+# of this phase has a diff, and exactly these components are re-planned.
+apiVersion: orun.io/v1
+kind: TaskContract
+spec:
+  goal: The product repo is born and linked, the whole product lands in one pull request, and one convergence deploys it on stage and prod
+  affects:
+    - cli
+    - contracts
+    - db
+    - notifications-client
+    - policy-engine
+    - sdk
+    - shared
+    - testing
+    - webhook-verifier
+    - cloudflare-d1
+    - cloudflare-kv
+    - db-migrate
+    - admin-worker
+    - billing-worker
+    - config-worker
+    - events-worker
+    - identity-worker
+    - integrations-worker
+    - membership-worker
+    - metering-worker
+    - notifications-worker
+    - policy-worker
+    - projects-worker
+    - webhooks-worker
+    - api-edge
+    - web-console-next
+  doneWhen:
+    - repo pushed, main pinned as default, workspace linked
+    - WIRING_CLOUDFLARE_D1 and WIRING_CLOUDFLARE_KV published on stage and prod
+    - migrations applied and every worker deployed with its bindings on stage and prod
+    - api-edge /health 200 and the console live on stage and prod
+  gates: []

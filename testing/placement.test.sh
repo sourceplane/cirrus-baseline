@@ -18,7 +18,7 @@
 #      placement, which is exactly why they need asserting: a future orun that
 #      stopped running them would weaken this tier in silence, and BE1a exists
 #      because that already happened once with a version pin;
-#   3. brand it as `01-scaffold`'s hook chain does, then `rebrand.mjs --verify`;
+#   3. brand it as `01-product`'s hook chain does, then `rebrand.mjs --verify`;
 #   4. run the leak rules over the REAL FILES rather than the derivation;
 #   5. check the API base the product ends up with against the rule
 #      `blueprint.yaml` states as its `derive` — the last mile of BE3's gate,
@@ -86,7 +86,7 @@ placed_count="$(find "$tree" -type f -not -path "*/.orun/*" | wc -l | tr -d ' ')
 
 echo "   $placed_count files placed; the repo-scale gate ran"
 
-# ── brand it, exactly as 01-scaffold's hooks do ────────────────────────────
+# ── brand it, exactly as 01-product's hooks do ────────────────────────────
 echo "── branding, then rebrand --verify"
 (
   cd "$tree"
@@ -197,13 +197,13 @@ PY
 #
 #     ✕ phase "02-foundation" requires 01-scaffold (drifted)
 #
-echo "── the phased sequence, with the rebrand where 01-scaffold puts it"
+echo "── the phased sequence, with the rebrand where 01-product puts it"
 seq="$scratch/seq"
 mkdir -p "$seq"/{apps,infra,packages,tests}
 for d in apps infra packages tests; do touch "$seq/$d/.gitkeep"; done
-orun new --blueprint "$root/repo-blueprint.yaml" --out "$seq" --phase 01-scaffold \
+orun new --blueprint "$root/repo-blueprint.yaml" --out "$seq" --phase 01-product \
   "${sets[@]}" > "$scratch/p01.log" 2>&1 || {
-    echo "FAIL: 01-scaffold did not place" >&2; tail -10 "$scratch/p01.log" >&2; exit 1; }
+    echo "FAIL: 01-product did not place" >&2; tail -10 "$scratch/p01.log" >&2; exit 1; }
 (
   cd "$seq"
   git init -q -b main
@@ -216,11 +216,13 @@ orun new --blueprint "$root/repo-blueprint.yaml" --out "$seq" --phase 01-scaffol
     echo "FAIL: the sequence's rebrand did not complete" >&2
     tail -10 "$scratch/seqbrand.log" >&2; exit 1; }
 
+[ -f "$seq/tooling/deploy/fleet-stubs.mjs" ] \
+  || fail "01-product did not place tooling/deploy/fleet-stubs.mjs — policy-worker's pre-deploy runs it"
 name_after_brand="$(python3 -c "import json;print(json.load(open('$seq/package.json'))['name'])")"
 [ "$name_after_brand" = "acme-cloud" ] \
   || fail "after branding, package.json name is $name_after_brand, not the product's"
 
-for ph in 02-foundation 04-workers 05-edge 07-domain; do
+for ph in 07-domain; do
   if ! orun new --blueprint "$root/repo-blueprint.yaml" --out "$seq" --phase "$ph" \
        "${sets[@]}" > "$scratch/p-$ph.log" 2>&1; then
     fail "phase $ph refused after the rebrand: $(tail -1 "$scratch/p-$ph.log")"
@@ -240,7 +242,7 @@ name_after_resume="$(python3 -c "import json;print(json.load(open('$seq/package.
      $name_after_resume. A resume between phases must not un-brand a product."
 
 [ "$fails" -eq 0 ] && \
-  echo "   01 → 07 place through the rebrand; --resume leaves the branding alone"
+  echo "   01-product → 07 place through the rebrand; --resume leaves the branding alone"
 
 [ "$fails" -eq 0 ] || { echo "placement.test.sh: $fails failure(s)" >&2; exit 1; }
 echo "placement.test.sh: ok"

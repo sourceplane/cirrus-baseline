@@ -29,8 +29,8 @@
 // phase state is DERIVED from the tree, never stored in it — holds. Delete the
 // line and nothing is lost but the next redeploy's reason to happen.
 //
-//   node retouch.mjs --phase 04-workers --affects tasks/04-workers.TaskContract.yaml
-//   node retouch.mjs --phase 05-edge --components billing-worker,membership-worker
+//   node retouch.mjs --phase 01-product --affects tasks/01-product.TaskContract.yaml
+//   node retouch.mjs --phase 01-product --components billing-worker,membership-worker
 //
 // Options:
 //   --phase <name>          the phase the marker names (required)

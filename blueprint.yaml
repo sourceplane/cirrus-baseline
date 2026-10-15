@@ -157,13 +157,11 @@ spec:
     epicSlug: infra-baselining         # = repo-blueprint.yaml's `epicSlug` default
     epicName: "Infra baselining — {productname}"
     milestones:
-      - name: 01-scaffold
-      # 03-infrastructure, 04-workers-restore and 06-console were folded into
-      # their neighbours' landings (02-foundation, 05-edge); the survivors
-      # keep their names, so the numbering has gaps.
-      - name: 02-foundation
-      - name: 04-workers
-      - name: 05-edge
+      # The whole product is one landing (01-product): the scaffold, the
+      # packages and data plane, the fleet and the edge and console that were
+      # 01- to 06- are one pull request and one convergence. The numbering
+      # keeps its gaps so 07 and 08 keep their names.
+      - name: 01-product
       # 07-domain carries `when: inputs.domain` in repo-blueprint.yaml (it
       # needs the Cloudflare zone to already exist), so its milestone is
       # ensured only on a run that asks for it. Declared with its condition
@@ -179,11 +177,10 @@ spec:
     # this repo at its pinned tag would have nothing to run. `manifestPath` in
     # the registry row names THIS file, the console card; it is not the build.
     blueprint: repo-blueprint.yaml
-    # Was 60. The bootstrap now runs five landings instead of eight, checks a
-    # landing's PR with `plan` only, deploys the fleet in one wave instead of
-    # in dependency order, and deploys stage and prod side by side
-    # (docs/phases/TIMINGS.md). An estimate until a run measures it.
-    expectedMinutes: 30
+    # Was 60, then 30; baseline-v21 measured 14m51s over five landings
+    # (docs/phases/TIMINGS.md). One landing and one deploy per worker should
+    # bring it to about 9 — an estimate until a run measures it.
+    expectedMinutes: 12
     tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
   verify:
     urls:

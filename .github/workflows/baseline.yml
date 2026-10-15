@@ -61,11 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Contract tests (manifest, phases, coverage, rebrand, retouch, console-artifact, bootstrap-defer)
+      - name: Contract tests (manifest, phases, coverage, rebrand, retouch, console-artifact, bootstrap-defer, fleet-stubs)
         run: |
           set -euo pipefail
           python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
-          for t in manifest phases coverage rebrand retouch console-artifact bootstrap-defer; do
+          for t in manifest phases coverage rebrand retouch console-artifact bootstrap-defer fleet-stubs; do
             echo "── $t"
             bash "testing/$t.test.sh"
           done
@@ -124,7 +124,7 @@ jobs:
       - name: the leak gate — what a product carries
         run: bash testing/leak.test.sh
       # Tier 1's other half (BE5b). This one PLACES the tree, brands it exactly
-      # as 01-scaffold's hooks do, and runs the phases that follow — which is
+      # as 01-product's hooks do, and runs the phases that follow — which is
       # the step nothing here had ever taken, and where orun BE-O12's two
       # defects lived. It needs node for rebrand alongside orun, and about ten
       # seconds. Still offline: placement writes files, and since BE-O12 a run
