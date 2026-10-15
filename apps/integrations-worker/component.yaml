@@ -10,10 +10,28 @@ spec:
   domain: starter-runtime
   path: apps/integrations-worker
   dependsOn:
+    # ENFORCED ON MAIN (one-landing bootstrap): the data plane before anything
+    # that reads its wiring, and policy-worker before anything that holds a
+    # service binding — its pre-deploy creates a placeholder for every binding
+    # target that does not exist yet (tooling/deploy/fleet-stubs.mjs), so each
+    # worker's first deploy can carry its full bindings. Peer edges stay
+    # advisory: they are runtime calls, not deploy order. A pull request deploys
+    # nothing, so nothing on one waits.
     - component: membership-worker
     - component: policy-worker
+      mode: enforced
+      modeRules:
+        - mode: advisory
+          when:
+            triggerRef: github-pull-request
     - component: billing-worker
     - component: projects-worker
+    - component: cloudflare-d1
+      mode: enforced
+      modeRules:
+        - mode: advisory
+          when:
+            triggerRef: github-pull-request
   # Runtime secrets, wire-now-seed-later: best-effort references —
   # an unseeded key is skipped at resolve (and by secrets-live), so
   # this block is inert until the value is stored in orun secrets.
@@ -37,8 +55,9 @@ spec:
         profile: verify
       - name: stage
         # Peer edges are runtime calls, not deploy order: every binding target
-        # already exists once the fleet's first wave has deployed
-        # (cycle-break.mjs --strip --all), so nothing in this lane waits.
+        # exists before this deploys (policy-worker's pre-deploy places one,
+        # tooling/deploy/fleet-stubs.mjs), so nothing in this lane waits on a
+        # peer. The edges marked `mode: enforced` above still order.
         dependencyMode: advisory
         profile: verify
         profileRules:
@@ -47,8 +66,9 @@ spec:
               triggerRef: github-push-main
       - name: prod
         # Peer edges are runtime calls, not deploy order: every binding target
-        # already exists once the fleet's first wave has deployed
-        # (cycle-break.mjs --strip --all), so nothing in this lane waits.
+        # exists before this deploys (policy-worker's pre-deploy places one,
+        # tooling/deploy/fleet-stubs.mjs), so nothing in this lane waits on a
+        # peer. The edges marked `mode: enforced` above still order.
         dependencyMode: advisory
         profile: verify
         profileRules:

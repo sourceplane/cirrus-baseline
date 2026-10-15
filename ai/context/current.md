@@ -15,7 +15,7 @@ and diverged on its data plane. Two things landed on top of the fork:
    [decisions.md](decisions.md) for what that costs (no interactive
    transaction, SQLite types, no schemas).
 2. **The baselining machinery is one blueprint.** `repo-blueprint.yaml`
-   declares the phases `01-scaffold … 08-docs`, their hooks, their barriers
+   declares the phases `01-product … 08-docs`, their hooks, their barriers
    and their narration; `orun new --phase <name>` runs them. The blueprint
    card at `blueprint.yaml` is what the console reads. The phase sequence is
    lumen-standard, with `03-infrastructure` rewritten for D1 and its

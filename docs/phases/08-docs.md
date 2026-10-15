@@ -20,7 +20,7 @@ No secret VALUE is ever read or written — inventories are names/statuses.
 
 1. **place** — this phase's modules (`ai-deployment`, `ai-operations`).
 2. **promotion** — a `post` hook runs `tooling/bootstrap/promotion.mjs
-   --restore`: `01-scaffold` deferred intent.yaml's `prod.promotion` gate so
+   --restore`: `01-product` deferred intent.yaml's `prod.promotion` gate so
    every bootstrap convergence deployed stage and prod side by side, and this
    last landing puts it back — from here on a change reaches prod only after
    it deployed to stage. The change is to intent.yaml's `environments`
@@ -30,7 +30,7 @@ No secret VALUE is ever read or written — inventories are names/statuses.
    intent.yaml): re-run `08-docs`, or run `node
    tooling/bootstrap/promotion.mjs --restore` in the product repo and land it.
 3. **dev-lanes** — a `post` hook runs `tooling/bootstrap/dev-lanes.mjs
-   --restore`: `01-scaffold` deferred dev's `github-push-main` activation so
+   --restore`: `01-product` deferred dev's `github-push-main` activation so
    no bootstrap convergence spent runner slots re-verifying the pinned
    baseline's content on the dev rung; from here on every merge to main
    verifies every component on dev again. Same shape as the promotion gate:
@@ -48,13 +48,13 @@ No secret VALUE is ever read or written — inventories are names/statuses.
 5. **verify** — an `orun.http/probe@v1` `await` hook re-probes the URLs the
    manifest claims, trusting nothing the render step said about them.
 
-`08-docs` requires `05-edge`, not `07-domain`, so a bootstrap that skips
+`08-docs` requires `01-product`, not `07-domain`, so a bootstrap that skips
 the custom domain still reaches it. Re-run it after `07-domain` to pick up
 the domain URLs.
 
 ## When to run (and re-run)
 
-- Right after [phase 05](05-edge.md) — the "working baseline"
+- Right after [phase 01](01-product.md) — the "working baseline"
   moment — to record it.
 - Again after [phase 07](07-domain.md) so the manifest picks up
   the custom-domain URLs.

@@ -50,7 +50,7 @@ tree. See [the phases README](README.md).
 
 The phase carries `when: inputs.domain`, so it is SKIPPED unless
 `--set domain=true`. A skipped phase does not block `08-docs`, which
-requires `05-edge` rather than this one.
+requires `01-product` rather than this one.
 
 ## Verify / done means
 

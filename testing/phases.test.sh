@@ -47,7 +47,9 @@ WAS = {
     # planning state and its Lumen provenance into every product. The partition
     # below is the pre-migration truth for everything else; this one line is a
     # deliberate, argued change and is recorded as such.
-    "01-scaffold": ["ai-deployment", "ai-operations", "github-workflows", "rebrand-values", "root-gitignore",
+    # 01-scaffold is 01-product since the one-landing bootstrap: the same
+    # phase, first, now placing everything the phases after it placed too.
+    "01-product": ["ai-deployment", "ai-operations", "github-workflows", "rebrand-values", "root-gitignore",
                     "root-intent", "root-kiox", "root-kiox-lock", "root-package-json",
                     "root-pnpm-lock", "root-pnpm-workspace", "root-readme", "root-turbo",
                     "tooling-eslint", "tooling-tsconfig", "tooling-wire", "vscode"],
@@ -70,13 +72,18 @@ WAS = {
 # Declared since BE1 and placing nothing: their work is hooks. `discovery-roots`
 # is likewise new — the empty apps/infra/packages/tests roots orun's repo-scale
 # gate requires, which the scaffold flow used to create with a mkdir.
-ADDED = {"01-scaffold": ["discovery-roots"]}
-# FOLDED, deliberately: a landing has a fixed cost, so a phase whose deploy
-# never waited on its neighbour's lands WITH it. The data plane rides the
-# packages' landing, and the console the edge's (the binding restore that was
-# the hook-only `04-workers-restore` rides it too). The modules move whole —
-# nothing is lost, and nothing else is allowed to move with them.
-FOLDED = {"03-infrastructure": "02-foundation", "06-console": "05-edge"}
+# `tooling-deploy` arrived with the one-landing bootstrap: policy-worker's
+# pre-deploy runs tooling/deploy/fleet-stubs.mjs in the product's own CI.
+ADDED = {"01-product": ["discovery-roots", "tooling-deploy"]}
+# FOLDED, deliberately: a landing has a fixed cost, and since the one-landing
+# bootstrap NOTHING between the scaffold and the custom domain is a landing of
+# its own: the order those phases enforced (the data plane before the fleet,
+# the fleet before its bindings) is carried by the plan — enforced dependsOn
+# edges and policy-worker's binding placeholders (tooling/deploy/
+# fleet-stubs.mjs). The modules move whole into 01-product — nothing is lost,
+# and nothing else is allowed to move with them.
+FOLDED = {"02-foundation": "01-product", "03-infrastructure": "01-product",
+          "04-workers": "01-product", "05-edge": "01-product", "06-console": "01-product"}
 HOOK_ONLY = {"08-docs"}
 
 by_name = {p["name"]: p for p in phases}

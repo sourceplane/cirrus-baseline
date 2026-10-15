@@ -73,7 +73,7 @@ where Cirrus diverged the divergence is the entry.
 
 - **The blueprint is the bootstrap.** There is one artifact,
   `repo-blueprint.yaml`, and `orun new --phase <name>` is the whole runtime;
-  the phases are `01-scaffold … 08-docs`. The shell layer that used to wrap
+  the phases are `01-product … 08-docs`. The shell layer that used to wrap
   it was deleted once every one of its mechanisms existed in the binary as a
   typed action — a bootstrap should not be a program the baseline ships.
 - **Phase state is derived, never stored.** The engine asks the tree which
