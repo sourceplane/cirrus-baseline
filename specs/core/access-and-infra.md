@@ -226,10 +226,10 @@ they are emitted by an Orun composition job.
 Required validation for infrastructure changes:
 
 ```bash
-kiox -- orun validate --intent intent.yaml
-kiox -- orun plan --intent intent.yaml --view dag
-kiox -- orun plan --intent intent.yaml --output plan.json
-kiox -- orun run --plan plan.json --dry-run --runner github-actions
+orun validate --intent intent.yaml
+orun plan --intent intent.yaml --view dag
+orun plan --intent intent.yaml --output plan.json
+orun run --plan plan.json --dry-run --runner github-actions
 ```
 
 Use `--changed` when proving PR scoping, and use full plans when validating
@@ -237,8 +237,8 @@ environment promotion or cross-component dependency behavior.
 
 ## Acceptance Criteria
 
-- `cirrus` uses the Orun runtime pinned in `kiox.yaml`
-  (authoritative; `kiox.lock` records the resolved digest) while continuing to
+- `cirrus` uses the Orun runtime pinned by `ci.yml`'s `orun-action`
+  `version:` (authoritative) while continuing to
   follow `aws-admin` for Terraform component and backend structure.
 - `intent.yaml` uses the `dev`, `stage`, `prod` environment shape and
   Terraform parameter defaults from the AWS-admin pattern.
@@ -248,7 +248,7 @@ environment promotion or cross-component dependency behavior.
   Secrets Manager namespace and Terraform state.
 - `stage` and `prod` each have their own Terraform-created D1 database, and
   their ids reach Workers only through the published wiring document.
-- CI and local `kiox -- orun ...` behavior are verified from rendered plans,
+- CI and local `orun ...` behavior are verified from rendered plans,
   not inferred from file names.
 - Resource creation or permission changes are verified against live provider
   state before merge.

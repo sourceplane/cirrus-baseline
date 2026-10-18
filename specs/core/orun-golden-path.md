@@ -37,14 +37,14 @@ execution contracts; Orun compiles those inputs into an explicit plan DAG.
 
 Use the `aws-admin` repo as the strongest current reference for Orun-shaped
 Terraform component structure, S3 backend shape, environment defaults, and
-README/component style. The pinned Orun runtime is the single source of truth in
-`kiox.yaml`; do not hard-code a version anywhere else:
+README/component style. The Orun runtime is pinned where it runs; do not
+restate a version anywhere else:
 
-- `kiox.yaml` pins the Orun provider image (`ghcr.io/sourceplane/orun:<version>`)
-  and `kiox.lock` records the resolved digest. This is the authority — quote it,
-  don't restate the version in prose.
 - `.github/workflows/ci.yml` uses `sourceplane/orun-action@<action-version>` with
-  `version:` matching the `kiox.yaml` pin.
+  a `version:`. That is the component lanes' runtime and the authority — quote
+  it, don't restate the version in prose.
+- The baseline's own workflow (`baseline.yml`) pins the versions its tiers need
+  (the bootstrap floor and the lane pin) the same way, with `orun-action`.
 - `intent.yaml` declares composition sources and type bindings centrally.
 - Environments are `dev`, `stage`, and `prod`; `stage` promotes from `dev`,
   and `prod` promotes from `stage`.
@@ -53,10 +53,10 @@ README/component style. The pinned Orun runtime is the single source of truth in
 - Component docs sit next to the component and explain resources, parameters,
   outputs, dependencies, and local verification.
 
-When bumping the runtime, update `kiox.yaml`/`kiox.lock` and the `ci.yml`
-`version:` together in one PR; no other doc should pin a literal version. If
+When bumping the runtime, update the `orun-action` `version:` in every workflow
+that should move, in one PR; no doc should pin a literal version. If
 `aws-admin` pins a different Orun runtime, treat that as reference-repo drift:
-follow `aws-admin` for structure and this repo's `kiox.yaml` pin for runtime.
+follow `aws-admin` for structure and this repo's `ci.yml` pin for runtime.
 
 ## Component Manifest Rules
 
@@ -120,12 +120,12 @@ Before editing, identify:
 Then validate with the cheapest command that proves the change:
 
 ```bash
-kiox -- orun compositions --intent intent.yaml --long
-kiox -- orun validate --intent intent.yaml
-kiox -- orun component --intent intent.yaml --long
-kiox -- orun plan --intent intent.yaml --view dag
-kiox -- orun plan --intent intent.yaml --output plan.json
-kiox -- orun run --plan plan.json --dry-run --runner github-actions
+orun compositions --intent intent.yaml --long
+orun validate --intent intent.yaml
+orun component --intent intent.yaml --long
+orun plan --intent intent.yaml --view dag
+orun plan --intent intent.yaml --output plan.json
+orun run --plan plan.json --dry-run --runner github-actions
 ```
 
 Use `--changed` for PR scoping checks. Use a full plan when changing
@@ -150,5 +150,5 @@ Every Orun-facing PR should say:
 - which layer changed: intent, component, composition, CI, or docs;
 - which component types and profiles are affected;
 - whether environments or dependency edges changed;
-- which `kiox -- orun ...` commands ran;
+- which `orun ...` commands ran;
 - what changed in the rendered plan DAG, or why the DAG is unchanged.

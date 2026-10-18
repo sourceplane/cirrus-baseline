@@ -10,8 +10,6 @@ This repository starts as a Cloudflare-first monorepo for a reusable multi-tenan
 
 ```text
 intent.yaml                Orun intent — composition sources, discovery roots, env lanes
-kiox.yaml                  Orun runtime pin, aligned with aws-admin
-kiox.lock                  Resolved Kiox provider lock
 /.orun                     Generated local Orun state, plans, locks, and runs; ignored by git
 /.github
   /workflows
@@ -101,7 +99,7 @@ explicit version in `intent.yaml`.
 
 - Use `pnpm` workspaces for package management.
 - Use `turbo` or an equivalent task graph runner for build, test, typecheck, lint, and deploy pipelines inside components.
-- Use `orun` as the only CI orchestration layer for validate, plan, test, verify, and deploy flows. Root scripts may wrap `kiox -- orun ...`, but CI gates must not bypass Orun with ad hoc shell steps.
+- Use `orun` as the only CI orchestration layer for validate, plan, test, verify, and deploy flows. Root scripts may wrap `orun ...`, but CI gates must not bypass Orun with ad hoc shell steps.
 - Use TypeScript across Workers, SDK, CLI, and shared packages for V1 velocity.
 - Each deployable Worker keeps its own `wrangler.jsonc` and deployment pipeline.
 
@@ -228,12 +226,12 @@ for Terraform, S3 backend, and environment structure.
   trigger bindings, and `dev` -> `stage` -> `prod` environment promotion. It
   uses `parameterDefaults.terraform` and `env.AWS_REGION` like `aws-admin`.
 - **`.orun/`** contains generated local Orun plans, locks, and run state. It is
-  ignored by git; `kiox.lock` is the committed runtime/provider lock.
+  ignored by git.
 - **`component.yaml`** in each app, package, infra module, and test suite
   describes the composition type, environment subscriptions, typed parameters,
   labels, and dependencies. No component is wired into the CI workflow directly.
-- **`kiox.yaml`** pins the Orun runtime version and should match the current
-  `aws-admin` pin.
+- **`.github/workflows/ci.yml`** pins the Orun runtime: its `orun-action`
+  `version:` is the authority.
 
 Composition types used:
 
@@ -253,9 +251,9 @@ then add fresh database infrastructure as a Terraform component.
 
 The base commands stay portable between local execution and GitHub Actions:
 
-- `kiox -- orun validate --intent intent.yaml`
-- `kiox -- orun plan --changed --intent intent.yaml --output plan.json`
-- `kiox -- orun run --plan plan.json --job <job-id>`
+- `orun validate --intent intent.yaml`
+- `orun plan --changed --intent intent.yaml --output plan.json`
+- `orun run --plan plan.json --job <job-id>`
 
 GitHub Actions may add matrix-selected `--job`, `--runner github-actions`, and
 remote-state flags, but it must not swap to a different task runner or a
@@ -286,10 +284,10 @@ Every change must pass the gates enforced by the matched Orun component graph:
 - contract tests
 - integration tests for the changed component
 - downstream smoke tests required by changed dependencies
-- local `kiox -- orun validate --intent intent.yaml`
-- local `kiox -- orun plan --changed`
-- local `kiox -- orun run --plan plan.json --dry-run --runner github-actions`
-- GitHub Actions `kiox -- orun run --plan plan.json --job <job-id> --runner github-actions --remote-state`
+- local `orun validate --intent intent.yaml`
+- local `orun plan --changed`
+- local `orun run --plan plan.json --dry-run --runner github-actions`
+- GitHub Actions `orun run --plan plan.json --job <job-id> --runner github-actions --remote-state`
 
 All test execution that can block merge or release must happen through Orun jobs owned by `tests/components/*`. Standalone `pnpm test` jobs in CI are allowed only when they are invoked by a test component composition, not as a second orchestration path beside Orun.
 
