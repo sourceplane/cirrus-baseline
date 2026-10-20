@@ -445,6 +445,13 @@ for *shape*, not membership, which is the right call and exactly why it cannot
 — so the reason is written at the input. It becomes a probe when the action
 does.
 
+> **Superseded (2026-10-20).** `subdomain` is no longer typed and never became
+> a probe: it is `from: connection.cloudflare.workersSubdomain`. The Cloudflare
+> integration reads the subdomain from the account at connect and hourly, and
+> the bootstrap door fills the input from the connection the build is bound
+> to. No orun action was needed — the platform already held the credential
+> that can answer the question. See risk #13 in `risks-and-open-questions.md`.
+
 ### The two seams, both found by writing the gate before the change
 
 **1. Nothing checked that the umbrella ACCEPTS what the manifest declares.**

@@ -51,7 +51,7 @@ else moves with them.
 | `productdomain` | `acme.dev` | REQUIRED. Product domain |
 | `githuborg` | `sourceplane` | REQUIRED. The org or user the repo is created under |
 | `orunWorkspace` | `ws_FGBDTQ8T` | workspace id. Unset, the workspace the build runs in (ORUN_WORKSPACE); with none anywhere, a placeholder that fails loudly rather than silently cross-tenanting |
-| `subdomain` | `rahulvarghesepullely` | workers.dev subdomain — keeping the baseline's is supported (worker names are brand-prefixed) |
+| `subdomain` | `rahulvarghesepullely` | workers.dev subdomain of the Cloudflare account you deploy into. A console or `--from bst_…` build reads it from the Cloudflare connection; pass it only for a hand-run build |
 | `apibaseurl` | `https://api.acme.dev` | CLI default API base; empty derives from `productdomain` |
 | `epicSlug` | `infra-baselining` (default) | the epic every phase files its task under |
 | `domain` | `false` (default) | `true` also runs `07-domain` (the zone must already exist) |
