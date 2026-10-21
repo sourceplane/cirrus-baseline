@@ -73,9 +73,8 @@ ships, and a product's docs speak only about the product.
 
 - Node.js >= 20 (CI and components run on Node 22)
 - pnpm >= 10 (`npm install -g pnpm`)
-- (Optional, for local Orun validation) the `kiox` CLI on your `PATH`. `kiox`
-  pins the Orun provider declared in `kiox.yaml`; invoke Orun as
-  `kiox -- orun ...`.
+- (Optional, for local Orun validation) the `orun` CLI on your `PATH`, at the
+  version `.github/workflows/ci.yml` pins (its `orun-action` `version:`).
 
 ## Getting Started
 
@@ -139,16 +138,16 @@ released there, and adopted here by bumping the pinned tag.
 CI is powered by [Orun](https://opencode.ai/docs) with the local Stack Tectonic
 composition stack. `.github/workflows/ci.yml` calls only `orun plan` and
 `orun run` — no direct `pnpm`, `turbo`, Wrangler, or Terraform commands run in
-GitHub Actions. The Orun runtime is pinned in `kiox.yaml` (resolved digest in
-`kiox.lock`); the workflow's `orun-action` `version:` matches that pin.
+GitHub Actions. The Orun runtime is pinned where it runs: the `orun-action`
+`version:` in each workflow (`ci.yml` for the component lanes).
 
 ### Local Orun Verification
 
 ```bash
-kiox -- orun compositions lock --intent intent.yaml
-kiox -- orun validate --intent intent.yaml
-kiox -- orun plan --changed --intent intent.yaml --output plan.json
-kiox -- orun run --plan plan.json --dry-run --runner github-actions
+orun compositions lock --intent intent.yaml
+orun validate --intent intent.yaml
+orun plan --changed --intent intent.yaml --output plan.json
+orun run --plan plan.json --dry-run --runner github-actions
 ```
 
 Use `--changed` for PR-scoped checks; use a full plan when validating
@@ -173,7 +172,7 @@ See `specs/core/access-and-infra.md` for the access model.
    typed `parameters` the composition schema requires.
 3. Orun discovers it automatically on the next plan (`discovery.roots` covers
    `apps/`, `infra/`, `packages/`, `tests/`). Validate with
-   `kiox -- orun validate --intent intent.yaml`.
+   `orun validate --intent intent.yaml`.
 
 See `specs/core/orun-golden-path.md` for the intent/component/composition layer
 rules before changing CI, infra, or `intent.yaml`.

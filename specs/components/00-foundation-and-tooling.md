@@ -34,7 +34,7 @@ Bootstrap a production-grade Cloudflare monorepo that all later SaaS starter bou
 - Terraform provisioning for D1, KV, and Worker infrastructure
 - local development scripts
 - Orun and Stack Tectonic CI/deploy pipeline skeleton
-- root `intent.yaml`, `kiox.yaml`, committed `kiox.lock`, and a pinned `stack-tectonic` OCI composition source
+- root `intent.yaml` and a pinned `stack-tectonic` OCI composition source
 - `component.yaml` scaffolds for apps, packages, infra, and test components
 - contract-test harness wired to `packages/contracts`
 
@@ -64,8 +64,7 @@ Bootstrap a production-grade Cloudflare monorepo that all later SaaS starter bou
 - `intent.yaml` follows the `aws-admin` environment model: `dev`, `stage`, `prod`, promotion gates, `parameterDefaults.terraform`, and `AWS_REGION`.
 - `intent.yaml` points at the repo's selected Stack Tectonic composition source and binds component types centrally.
 - The `stack-tectonic` catalog is aligned with `../aws-admin/stacks/aws-admin-terraform/` for Terraform schema, jobs, profiles, README style, and local/CI behavior before new infra components depend on it.
-- `kiox.yaml` pins the same Orun runtime version as `aws-admin`.
-- `kiox.yaml` pins the Orun provider image and `kiox.lock` records the resolved digest.
+- `.github/workflows/ci.yml` pins the Orun runtime (its `orun-action` `version:`).
 - `.orun/` contains generated local plans, locks, and run state and is not committed.
 - Each app, package, infra unit, and test suite has a colocated `component.yaml`.
 - Test components start as `turbo-package` components with `labels.layer: test` unless the local stack provides a dedicated test type.
@@ -121,10 +120,10 @@ Bootstrap a production-grade Cloudflare monorepo that all later SaaS starter bou
 - Local verification passes:
 
 ```bash
-kiox -- orun compositions lock --intent intent.yaml
-kiox -- orun validate --intent intent.yaml
-kiox -- orun plan --changed --intent intent.yaml --output plan.json
-kiox -- orun run --plan plan.json --dry-run --runner github-actions
+orun compositions lock --intent intent.yaml
+orun validate --intent intent.yaml
+orun plan --changed --intent intent.yaml --output plan.json
+orun run --plan plan.json --dry-run --runner github-actions
 ```
 
 - GitHub Actions uses the same Orun plan/run model and executes at least one test component.

@@ -233,7 +233,6 @@ const EXCLUDE_RE = new RegExp(
     "^FORKING\\.md$",
     "^ai/context/fork-from-baseline\\.md$",
     "^pnpm-lock\\.yaml$",
-    "^kiox\\.lock$",
     "\\.(png|jpg|jpeg|ico|gif|woff2?|ttf|eot)$",
   ].join("|"),
 );

@@ -571,16 +571,6 @@ modules:
     source: baseline
     from: turbo.json
     to: turbo.json
-  - name: root-kiox
-    mode: copy
-    source: baseline
-    from: kiox.yaml
-    to: kiox.yaml
-  - name: root-kiox-lock
-    mode: copy
-    source: baseline
-    from: kiox.lock
-    to: kiox.lock
   - name: root-gitignore
     mode: copy
     source: baseline
@@ -818,7 +808,7 @@ phases:
       await:  "One convergence is deploying the product: D1 and KV first, then the fleet with its bindings, the API edge and the console on stage and prod. Nothing is stuck."
       done:   "{{ .inputs.reponame }} is live on stage and prod — {{ .meta.files }} files on main, branded as {{ .inputs.productname }}, every URL answering. That took {{ .meta.elapsed }}."
       failed: "The product did not come up. The failing lane above names the component, and a provider error is in its log; whatever deployed is still there."
-    modules: [admin-worker, admin-worker-tests, ai-deployment, ai-operations, api-edge, api-edge-tests, billing-worker, billing-worker-tests, cli, cloudflare-d1, cloudflare-kv, config-worker, config-worker-tests, contracts, contracts-tests, db, db-migrate, db-tests, discovery-roots, events-worker, events-worker-tests, github-workflows, identity-worker, identity-worker-tests, integrations-worker, integrations-worker-tests, membership-worker, membership-worker-tests, metering-worker, metering-worker-tests, notifications-client, notifications-client-tests, notifications-worker, notifications-worker-tests, policy-engine, policy-engine-tests, policy-worker, policy-worker-tests, projects-worker, projects-worker-tests, rebrand-values, root-gitignore, root-intent, root-kiox, root-kiox-lock, root-package-json, root-pnpm-lock, root-pnpm-workspace, root-readme, root-turbo, sdk, shared, testing, tooling-deploy, tooling-eslint, tooling-tsconfig, tooling-wire, vscode, web-console-next, web-console-next-tests, webhook-verifier, webhooks-worker, webhooks-worker-tests]
+    modules: [admin-worker, admin-worker-tests, ai-deployment, ai-operations, api-edge, api-edge-tests, billing-worker, billing-worker-tests, cli, cloudflare-d1, cloudflare-kv, config-worker, config-worker-tests, contracts, contracts-tests, db, db-migrate, db-tests, discovery-roots, events-worker, events-worker-tests, github-workflows, identity-worker, identity-worker-tests, integrations-worker, integrations-worker-tests, membership-worker, membership-worker-tests, metering-worker, metering-worker-tests, notifications-client, notifications-client-tests, notifications-worker, notifications-worker-tests, policy-engine, policy-engine-tests, policy-worker, policy-worker-tests, projects-worker, projects-worker-tests, rebrand-values, root-gitignore, root-intent, root-package-json, root-pnpm-lock, root-pnpm-workspace, root-readme, root-turbo, sdk, shared, testing, tooling-deploy, tooling-eslint, tooling-tsconfig, tooling-wire, vscode, web-console-next, web-console-next-tests, webhook-verifier, webhooks-worker, webhooks-worker-tests]
     # THE PLATFORM MUST BE ABLE TO SEE THE REPOSITORY BEFORE IT EXISTS. Every
     # phase lands a pull request that files under its task, and the platform
     # learns of a PR only through the GitHub App installation on the account

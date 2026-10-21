@@ -50,7 +50,7 @@ WAS = {
     # 01-scaffold is 01-product since the one-landing bootstrap: the same
     # phase, first, now placing everything the phases after it placed too.
     "01-product": ["ai-deployment", "ai-operations", "github-workflows", "rebrand-values", "root-gitignore",
-                    "root-intent", "root-kiox", "root-kiox-lock", "root-package-json",
+                    "root-intent", "root-package-json",
                     "root-pnpm-lock", "root-pnpm-workspace", "root-readme", "root-turbo",
                     "tooling-eslint", "tooling-tsconfig", "tooling-wire", "vscode"],
     "02-foundation": ["cli", "contracts", "contracts-tests", "db", "db-tests",
