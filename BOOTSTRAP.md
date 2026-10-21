@@ -98,13 +98,15 @@ every phase once `01-product` brands the tree — derives as `drifted`, and
 ## 1b. Or phase by phase — the same document, at your pace
 
 The phases are `01-product` (the repository, then the WHOLE product in one
-pull request, deployed by one convergence in dependency order), `07-domain`
-(only when `--set domain=true`) and `08-docs` (the record; it also puts back
-the prod promotion gate and dev's lanes). The gaps in the numbering are the
-phases that used to be landings of their own (`02-foundation` to
-`06-console`), folded into `01-product` in baseline-v22. Each is idempotent, each follows
-one contract — **place its modules → land them → watch the convergence →
-verify the outcome** — and each carries its own narration. Full guide:
+pull request, deployed by one convergence in dependency order) and `08-docs`
+(the record; it also puts back the prod promotion gate and dev's lanes). The
+gaps in the numbering are the phases that used to be landings of their own:
+`02-foundation` to `06-console`, folded into `01-product` in baseline-v22, and
+`07-domain`, whose parked custom-domain component lands in `01-product` since
+baseline-v24 (the `domain` input that switched it on is gone). Each is
+idempotent, each follows one contract — **place its modules → land them →
+watch the convergence → verify the outcome** — and each carries its own
+narration. Full guide:
 [docs/phases/README.md](docs/phases/README.md), with a detailed page per
 phase in that folder.
 
@@ -121,7 +123,6 @@ orun new --blueprint repo-blueprint.yaml --out ~/sourceplane/acme --run-hooks \
 # (a --values file is easier than repeating --set):
 orun new --blueprint repo-blueprint.yaml --out ~/sourceplane/acme --run-hooks \
   --phase 08-docs --values ~/acme.values.yaml
-#    07 (domain) before it, only with domain=true.
 ```
 
 Three flags shape a run:
@@ -208,10 +209,13 @@ every phase's state and is the flag for that.
 
 ## 3. After the baseline is live
 
-- **Custom domain**: create the product zone in Cloudflare, then run
-  `--phase 07-domain --set domain=true` (see
-  [docs/phases/07-domain.md](docs/phases/07-domain.md)), and re-run
-  `--phase 08-docs` so the docs pick up the domain URLs.
+- **Custom domain**: the `cloudflare-domain` component is already in the
+  product, parked (it subscribes to no environment). Create the product zone
+  in Cloudflare, restore the component's commented-out `subscribe` block in
+  an ordinary PR (see
+  [docs/phases/01-product.md](docs/phases/01-product.md#the-custom-domain--parked)),
+  and re-run `--phase 08-docs` once it converges so the docs pick up the
+  domain URLs.
 - **Runtime secrets** (OAuth client secrets, billing keys, …): seed with
   `orun secrets set <KEY> --org <org> --env <env>`; the next deploy pushes
   them to the workers (`wire-now-seed-later` — nothing blocks on them).

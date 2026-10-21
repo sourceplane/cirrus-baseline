@@ -34,12 +34,41 @@ That tool and its second fleet deploy are gone.
 
 ## What it lands
 
-Every module of `repo-blueprint.yaml` except `cloudflare-domain` (07-domain,
-optional): the root manifests, CI, tooling and identity; the thirteen shared
-packages; `cloudflare-d1`, `cloudflare-kv` and `db-migrate`; the twelve
-workers; `api-edge` and `web-console-next`; and their tests.
-`testing/phases.test.sh` holds the set: modules move whole, and nothing
-else moves with them.
+Every module of `repo-blueprint.yaml`: the root manifests, CI, tooling and
+identity; the thirteen shared packages; `cloudflare-d1`, `cloudflare-kv` and
+`db-migrate`; the twelve workers; `api-edge` and `web-console-next`; their
+tests; and `cloudflare-domain`, parked (below). `testing/phases.test.sh`
+holds the set: modules move whole, and nothing else moves with them.
+
+## The custom domain — parked
+
+`infra/terraform/cloudflare-domain` (records, and worker routes or custom
+domains for the edge and the console per environment) lands with everything
+else, and **deploys nothing**: its `component.yaml` declares
+`subscribe.environments: []`, so CI plans no lanes for it. The product runs
+on workers.dev URLs until an owner wires it.
+
+It used to land on its own as the optional `07-domain` phase, behind a
+`domain` input. That landing deployed nothing either — its convergence was a
+green run with nothing in it — so the phase and the switch are gone, and the
+task contract's `affects` leaves the component out: there is nothing in it
+to re-plan.
+
+Wiring it is a normal pull request in the product, once the zone exists:
+
+1. **The zone first.** The product zone (e.g. `acme.dev`) must already exist
+   in the Cloudflare account the product deploys into, created in the
+   dashboard; zone creation is an account-plan operation the platform does
+   not broker. The terraform manages records and routes IN the zone, not the
+   zone itself — without it the plan fails with *zone not found* (or the
+   brokered token's account is not the zone's).
+2. **Restore the `subscribe` block** the component carries commented out,
+   and finish the provider-v5 re-import its comment names (the component's
+   `README.md` says where that migration stands).
+3. **Land it.** The convergence on `main` applies it; check the product
+   resolves on its own domain (DNS propagation applies), then re-run
+   [`08-docs`](08-docs.md) so the deployment manifest records the
+   custom-domain URLs.
 
 ## Inputs
 
@@ -54,7 +83,6 @@ else moves with them.
 | `subdomain` | `rahulvarghesepullely` | workers.dev subdomain of the Cloudflare account you deploy into. A console or `--from bst_…` build reads it from the Cloudflare connection; pass it only for a hand-run build |
 | `apibaseurl` | `https://api.acme.dev` | CLI default API base; empty derives from `productdomain` |
 | `epicSlug` | `infra-baselining` (default) | the epic every phase files its task under |
-| `domain` | `false` (default) | `true` also runs `07-domain` (the zone must already exist) |
 
 ## Prerequisites
 
@@ -156,5 +184,5 @@ git checkout intent.yaml
 
 ## Next
 
-`07-domain` when the build asked for a domain, then `08-docs`, which records
-the live deployment and puts the promotion gate and dev's lanes back.
+`08-docs`, which records the live deployment and puts the promotion gate and
+dev's lanes back.

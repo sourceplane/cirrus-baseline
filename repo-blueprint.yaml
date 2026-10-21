@@ -74,8 +74,9 @@ inputs:
       its CI would claim another tenant's workspace. Unset, it is the workspace
       the build runs in; with none anywhere, the scaffold writes a placeholder
       that fails loudly rather than silently cross-tenanting.
-  # ── BE1: the three facts the phases below need and the flows used to hold.
-  # They were workflow inputs (`githuborg`, `epicslug`, `domain` on
+  # ── BE1: the facts the phases below need and the flows used to hold.
+  # They were workflow inputs (`githuborg`, `epicslug` — and `domain`, gone
+  # since the custom-domain component lands with the product — on
   # the flows' per-phase workflow.yaml), which made them invisible to anything
   # reading this file — including the console that has to render a form.
   githuborg:
@@ -103,14 +104,6 @@ inputs:
       open-source product it was asked for without editing the blueprint.
       `orun.repo/ensure@v1` only sets this at creation: an existing repository
       keeps whatever visibility it already has.
-  domain:
-    type: boolean
-    default: false
-    description: >-
-      Whether to wire the product's custom domain (phase 07). It needs the
-      Cloudflare zone to already exist, so it is off unless asked for — the
-      condition the umbrella carried as a shell `[ = "true" ]` test and phase
-      07 now carries as its own `when:`.
 
 # ── SOURCES ───────────────────────────────────────────────────────────────
 # The baseline is this repo itself. Run `orun new` from the Cirrus repo root so
@@ -606,7 +599,7 @@ modules:
   #    records the non-secret inputs in .orun/provenance.lock, but `.orun/` is
   #    gitignored in the product, so it has never survived a container — this
   #    file is committed, which is why every input a later phase needs must
-  #    appear here. githuborg/epicSlug/domain are here for exactly that: a
+  #    appear here. githuborg/epicSlug are here for exactly that: a
   #    phase run months later in a fresh container reads them back.
   - name: rebrand-values
     mode: template
@@ -624,8 +617,7 @@ modules:
           "salesEmail": "{{ .salesEmail }}"{{ end }},
           "orunWorkspace": "{{ .orunWorkspace }}",
           "githuborg": "{{ .githuborg }}",
-          "epicSlug": "{{ .epicSlug }}",
-          "domain": {{ if .domain }}true{{ else }}false{{ end }}
+          "epicSlug": "{{ .epicSlug }}"
         }
 
 # ── THE WORK, UP FRONT ────────────────────────────────────────────────────
@@ -668,8 +660,8 @@ hooks:
           in {{ .inputs.githuborg }}/{{ .inputs.reponame }}: the repository,
           the whole product in one landing — the shared packages, the D1 and
           KV data plane, the twelve-worker fleet, the API edge and the web
-          console — then the custom domain when one is asked for, and the
-          record of what went live. One milestone per phase, in the order the
+          console, with the custom-domain component parked until a zone is
+          wired — and the record of what went live. One milestone per phase, in the order the
           phases run; one task per landing, each bound to the pull request
           that lands it.
         owner: me
@@ -687,15 +679,6 @@ hooks:
           - D1 and KV applied on stage and prod, WIRING_CLOUDFLARE_D1 and WIRING_CLOUDFLARE_KV published
           - migrations applied and the twelve workers deployed with their bindings on stage and prod
           - api-edge /health answers 200 and the console root answers on stage and prod
-    - id: m07
-      uses: orun.task/ensure@v1
-      with:
-        kind: milestone
-        epic: "{{ .inputs.epicSlug }}"
-        name: 07-domain
-        exitCriteria:
-          - the custom-domain component merged and its convergence green
-          - runs only when the build asks for a domain; otherwise it stays open and is skipped
     - id: m08
       uses: orun.task/ensure@v1
       with:
@@ -722,19 +705,6 @@ hooks:
           its bindings, the API edge and the console — on stage and prod.
         prefix: BASE
         contract: tasks/01-product.TaskContract.yaml
-    - id: t07
-      uses: orun.task/ensure@v1
-      with:
-        kind: task
-        epic: "{{ .inputs.epicSlug }}"
-        milestone: 07-domain
-        name: "Bind the custom domain"
-        brief: >-
-          Land the custom-domain component for {{ .inputs.productdomain }} —
-          the zone and the console's custom domains. Its phase runs only when
-          the build asks for a domain.
-        prefix: BASE
-        contract: tasks/07-domain.TaskContract.yaml
     - id: t08
       uses: orun.task/ensure@v1
       with:
@@ -796,8 +766,12 @@ hooks:
 #
 # So 01-product places the whole tree, brands it and lands it as one pull
 # request, and its convergence deploys everything in dependency order.
-# 07-domain stays its own landing because it is optional, and 08-docs because
-# it records what went live and puts back the two bootstrap deferrals.
+# The custom-domain component lands with it, PARKED: it subscribes to no
+# environment until an owner wires a zone (infra/terraform/cloudflare-domain's
+# README), so a landing of its own changed nothing live. It was the optional
+# 07-domain phase, behind a `domain` input, until that input was removed.
+# 08-docs stays its own landing because it records what went live and puts
+# back the two bootstrap deferrals.
 phases:
   - name: 01-product
     title: The product, built in one landing
@@ -808,7 +782,7 @@ phases:
       await:  "One convergence is deploying the product: D1 and KV first, then the fleet with its bindings, the API edge and the console on stage and prod. Nothing is stuck."
       done:   "{{ .inputs.reponame }} is live on stage and prod — {{ .meta.files }} files on main, branded as {{ .inputs.productname }}, every URL answering. That took {{ .meta.elapsed }}."
       failed: "The product did not come up. The failing lane above names the component, and a provider error is in its log; whatever deployed is still there."
-    modules: [admin-worker, admin-worker-tests, ai-deployment, ai-operations, api-edge, api-edge-tests, billing-worker, billing-worker-tests, cli, cloudflare-d1, cloudflare-kv, config-worker, config-worker-tests, contracts, contracts-tests, db, db-migrate, db-tests, discovery-roots, events-worker, events-worker-tests, github-workflows, identity-worker, identity-worker-tests, integrations-worker, integrations-worker-tests, membership-worker, membership-worker-tests, metering-worker, metering-worker-tests, notifications-client, notifications-client-tests, notifications-worker, notifications-worker-tests, policy-engine, policy-engine-tests, policy-worker, policy-worker-tests, projects-worker, projects-worker-tests, rebrand-values, root-gitignore, root-intent, root-package-json, root-pnpm-lock, root-pnpm-workspace, root-readme, root-turbo, sdk, shared, testing, tooling-deploy, tooling-eslint, tooling-tsconfig, tooling-wire, vscode, web-console-next, web-console-next-tests, webhook-verifier, webhooks-worker, webhooks-worker-tests]
+    modules: [admin-worker, admin-worker-tests, ai-deployment, ai-operations, api-edge, api-edge-tests, billing-worker, billing-worker-tests, cli, cloudflare-d1, cloudflare-domain, cloudflare-kv, config-worker, config-worker-tests, contracts, contracts-tests, db, db-migrate, db-tests, discovery-roots, events-worker, events-worker-tests, github-workflows, identity-worker, identity-worker-tests, integrations-worker, integrations-worker-tests, membership-worker, membership-worker-tests, metering-worker, metering-worker-tests, notifications-client, notifications-client-tests, notifications-worker, notifications-worker-tests, policy-engine, policy-engine-tests, policy-worker, policy-worker-tests, projects-worker, projects-worker-tests, rebrand-values, root-gitignore, root-intent, root-package-json, root-pnpm-lock, root-pnpm-workspace, root-readme, root-turbo, sdk, shared, testing, tooling-deploy, tooling-eslint, tooling-tsconfig, tooling-wire, vscode, web-console-next, web-console-next-tests, webhook-verifier, webhooks-worker, webhooks-worker-tests]
     # THE PLATFORM MUST BE ABLE TO SEE THE REPOSITORY BEFORE IT EXISTS. Every
     # phase lands a pull request that files under its task, and the platform
     # learns of a PR only through the GitHub App installation on the account
@@ -1046,82 +1020,6 @@ phases:
               - "https://{{ .inputs.reponame }}-api-edge-prod.{{ .inputs.subdomain }}.workers.dev/health"
               - "https://{{ .inputs.reponame }}-web-console-next-prod.{{ .inputs.subdomain }}.workers.dev"
 
-  - name: 07-domain
-    title: The custom domain
-    expectedMinutes: 5
-    narrate:
-      start:  "Now placing the custom-domain component for {{ .inputs.productdomain }} — the zone and the console's custom domains."
-      await:  "Waiting for the convergence run that follows the domain PR."
-      done:   "The custom-domain component is in the repository. It subscribes to no environment yet, so nothing is attached until it does — docs/phases/07-domain.md says what to change."
-      failed: "The domain phase did not land. Check that the zone for {{ .inputs.productdomain }} exists in this Cloudflare account."
-    modules: [cloudflare-domain]
-    when: inputs.domain
-    requires:
-      phases: [01-product]
-    hooks:
-      pre:
-        - id: task
-          uses: orun.task/ensure@v1
-          with:
-            kind: task
-            epic: "{{ .inputs.epicSlug }}"
-            milestone: "{{ .phase.name }}"
-            name: "Bind the custom domain"
-            prefix: BASE
-            contract: tasks/07-domain.TaskContract.yaml
-      post:
-        # Give a re-run something to land (see 01-product).
-        # cloudflare-domain ships with `subscribe.environments: []`, so today
-        # its convergence plans no lane and the marker changes nothing; once
-        # an operator subscribes it (docs/phases/07-domain.md) a redo of this
-        # phase has to re-plan it, and the marker is how.
-        - id: retouch
-          run: ["node", "{{ .baseline.dir }}/tooling/bootstrap/retouch.mjs", "--phase", "{{ .phase.name }}", "--affects", "{{ .baseline.dir }}/tasks/07-domain.TaskContract.yaml"]
-        # Brand what this phase placed before it lands (see 01-product's rebrand).
-        - id: stage
-          run: ["git", "add", "-A"]
-        - id: rebrand
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--values", ".rebrand/values.json", "--allow-dirty"]
-        - id: restage
-          run: ["git", "add", "-A"]
-        - id: rebrand-verify
-          run: ["node", "{{ .baseline.dir }}/tooling/rebrand/rebrand.mjs", "--verify", "--values", ".rebrand/values.json"]
-        # START FROM THE BASELINE'S COMPLETE LOCKFILE, then let pnpm prune it to
-        # the projects placed so far. Re-resolving only what this phase added
-        # needed ~0.8 GB cold for 05 (the console's tree) and was OOM-killed on
-        # the platform's build box ("signal: killed" / "signal: aborted"); from
-        # the complete lockfile 05 is a no-op (0.3 s, ~160 MB) and 02/04 prune
-        # in ~7-9 s at ~0.5-0.6 GB. The lockfile carries no product identity,
-        # so it needs no rebrand. 01 starts from it already (root-pnpm-lock).
-        - id: pnpm-lockfile-seed
-          run: ["cp", "{{ .baseline.dir }}/pnpm-lock.yaml", "pnpm-lock.yaml"]
-        - id: pnpm-lockfile
-          run: ["pnpm", "install", "--lockfile-only"]
-        - id: land
-          uses: orun.pr/land@v1
-          narrate: "The domain PR is merged into main."
-          with:
-            # The PR's only check is `plan`; the convergence this landing
-            # triggers on main is the real gate, and the `await` below watches
-            # it. Waiting for the PR check first cost ~20 s per landing.
-            wait: false
-            task: "{{ .phase.hooks.task.outputs.key }}"
-            epic: "{{ .inputs.epicSlug }}"
-            branchSlug: "{{ .phase.name }}"
-            title: "feat(domain): the custom-domain component"
-      await:
-        - id: converge
-          uses: orun.run/watch@v1
-          narrate: "The convergence run after the domain PR came back green."
-          with:
-            sha: "{{ .phase.hooks.land.outputs.mergeSha }}"
-            repo: "{{ .inputs.githuborg }}/{{ .inputs.reponame }}"
-            resumeBudget: 3
-            waitSeconds: 1800
-
-  # Places nothing. It records what the other phases built, from PROBED facts
-  # rather than from what the blueprint intended — which is why it runs last
-  # and why its verify is the same probe 01-product ends on.
   - name: 08-docs
     title: The deployment, recorded
     expectedMinutes: 1

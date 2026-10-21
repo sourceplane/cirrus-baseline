@@ -167,15 +167,12 @@ spec:
     milestones:
       # The whole product is one landing (01-product): the scaffold, the
       # packages and data plane, the fleet and the edge and console that were
-      # 01- to 06- are one pull request and one convergence. The numbering
-      # keeps its gaps so 07 and 08 keep their names.
+      # 01- to 06- are one pull request and one convergence. The custom-domain
+      # component lands in it too, parked (it subscribes to no environment
+      # until an owner wires a zone), so the optional 07-domain milestone and
+      # the `domain` input that switched it on are gone. The numbering keeps
+      # its gaps so 08 keeps its name.
       - name: 01-product
-      # 07-domain carries `when: inputs.domain` in repo-blueprint.yaml (it
-      # needs the Cloudflare zone to already exist), so its milestone is
-      # ensured only on a run that asks for it. Declared with its condition
-      # rather than silently listed, so the console can say so.
-      - name: 07-domain
-        when: domain
       - name: 08-docs
 
   bootstrap:

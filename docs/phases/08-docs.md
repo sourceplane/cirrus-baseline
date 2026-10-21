@@ -48,16 +48,16 @@ No secret VALUE is ever read or written — inventories are names/statuses.
 5. **verify** — an `orun.http/probe@v1` `await` hook re-probes the URLs the
    manifest claims, trusting nothing the render step said about them.
 
-`08-docs` requires `01-product`, not `07-domain`, so a bootstrap that skips
-the custom domain still reaches it. Re-run it after `07-domain` to pick up
-the domain URLs.
+`08-docs` requires `01-product`. Re-run it once an owner has wired the
+custom domain to pick up the domain URLs.
 
 ## When to run (and re-run)
 
 - Right after [phase 01](01-product.md) — the "working baseline"
   moment — to record it.
-- Again after [phase 07](07-domain.md) so the manifest picks up
-  the custom-domain URLs.
+- Again once the custom domain is wired (see
+  [01-product](01-product.md#the-custom-domain--parked)) so the manifest picks
+  up the custom-domain URLs.
 - Any time later as a **live-state refresh**: it is fully idempotent; the
   manifest is regenerated from scratch on every run and carries its own
   render timestamp.

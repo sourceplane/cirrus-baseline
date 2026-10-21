@@ -811,3 +811,52 @@ required on every input and no baseline has re-cut since. HEAD's
 `blueprint.yaml` parses (five inputs, all patterned; eight milestones), so a
 `baseline-v6` fixes the row — and cutting one goes through the gate above,
 which is waiting on the rehearsal.
+
+## The `domain` input, removed (2026-10-21, `baseline-v24`)
+
+`07-domain` was the one conditional phase: `when: inputs.domain`, off by
+default, landing a single component, `cloudflare-domain`. That component
+ships PARKED — `subscribe.environments: []` — so CI plans no lanes for it and
+the phase's convergence was a green run with nothing in it. A landing that
+deploys nothing, behind a switch that turns on a component which is already
+off, was one more question and one more PR for no effect.
+
+### What shipped
+
+- `repo-blueprint.yaml`: the `domain` input is gone; `cloudflare-domain`
+  joins `01-product`'s modules; the `07-domain` phase, its programme
+  milestone (`m07`) and task (`t07`) are deleted. Two phases remain:
+  `01-product` and `08-docs`. The numbering keeps its gaps.
+- `blueprint.yaml`: the programme lists the two milestones.
+- `tasks/07-domain.TaskContract.yaml` and `docs/phases/07-domain.md` are
+  deleted. What the page said that is still true — the component ships
+  parked, the zone must exist in the account first, wiring it is restoring
+  the commented-out `subscribe` block — is now a section of
+  `docs/phases/01-product.md`, and `ai/context/operations.md` (which ships)
+  says the same without naming a factory path.
+- `01-product`'s task contract leaves `cloudflare-domain` out of `affects`:
+  that list is what the convergence deploys, and a parked component deploys
+  nothing.
+- `.rebrand/values.json` and `tests/fixtures/acme.json` lose `"domain": false`.
+  (`.baseline/identity.json`'s `domain` is the baseline's own domain name, not
+  the switch, and stays.)
+
+### What the tests had to become
+
+- `testing/phases.test.sh` records `07-domain` as FOLDED into `01-product`,
+  like `02`–`06` before it, so the partition gate still proves the component
+  moved whole and nothing moved with it.
+- `testing/leak.test.sh` and `testing/placement.test.sh` no longer force
+  `domain` on: the component is placed by `01-product` on every build, so the
+  gates cover it without help. The placement tier's phased sequence now
+  places `08-docs` after the rebrand — it requires the drifted `01-product`,
+  the exact case BE-O12 fixed.
+- `testing/retouch.test.sh` expects one retouch hook (01-product's), not two.
+
+### Verification
+
+| check | result |
+|---|---|
+| manifest, phases, coverage, rebrand, retouch, console-artifact, bootstrap-defer, fleet-stubs | all pass |
+| `testing/leak.test.sh` (orun 2.58.11, the CI pin) | pass — 2 context files, no factory paths |
+| `testing/placement.test.sh` (orun 2.58.11) | pass — 1087 product files, the same count as with `domain` forced on before; `01-product → 08` place through the rebrand; `--resume` keeps the branding |
