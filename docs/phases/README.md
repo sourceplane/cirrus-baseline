@@ -28,8 +28,7 @@ Every phase lands as a pull request that is checked, then merged: each landing w
 
 | phase | lands | verified by |
 |---|---|---|
-| [`01-product`](01-product.md) | **GitHub repo created**, then the WHOLE product in one PR: intent, CI, tooling, identity, 13 packages, D1 + KV, db-migrate, the 12-worker fleet with its bindings, api-edge and the web console — one convergence deploys it in dependency order | `WIRING_*` published, convergence green, `/health` and console live on stage+prod |
-| [`07-domain`](07-domain.md) | custom domain (OPTIONAL — `when: inputs.domain`) | convergence green |
+| [`01-product`](01-product.md) | **GitHub repo created**, then the WHOLE product in one PR: intent, CI, tooling, identity, 13 packages, D1 + KV, db-migrate, the 12-worker fleet with its bindings, api-edge, the web console and the custom-domain component (parked until a zone is wired) — one convergence deploys it in dependency order | `WIRING_*` published, convergence green, `/health` and console live on stage+prod |
 | [`08-docs`](08-docs.md) | live-deployment docs (manifest + operating contract) | committed manifest matches probed reality |
 
 ## Inputs
@@ -52,9 +51,6 @@ alone:
 - `epicSlug` (default `infra-baselining`) — the epic every phase clubs its
   task under. Found by slug, so a fresh run and a resumed run find the same
   work.
-- `domain` (default `false`) — whether to run `07-domain`. It needs the
-  Cloudflare zone to already exist, so it is off unless asked for; the
-  phase carries the condition as its own `when:`.
 
 ```bash
 orun new --blueprint repo-blueprint.yaml \
@@ -95,9 +91,11 @@ over five landings, and it was 50–65 before that):
 
 - **One landing builds the product.** `01-product` places the whole tree and
   lands it as one PR; the convergence that follows deploys everything in
-  dependency order. Only the optional domain (`07-domain`) and the record
-  (`08-docs`) are landings of their own. The numbering keeps its gaps so the
-  names stay the identities the task plane and `--phase` use.
+  dependency order. Only the record (`08-docs`) is a landing of its own; the
+  custom-domain component lands in `01-product`, parked, and an owner wires
+  it later in an ordinary PR (see [01-product](01-product.md#the-custom-domain--parked)).
+  The numbering keeps its gaps so the names stay the identities the task
+  plane and `--phase` use.
 - **A landing's PR is checked by `plan` alone.** The lanes run
   once, on main.
 - **Every worker deploys once, with its bindings.** The data plane comes

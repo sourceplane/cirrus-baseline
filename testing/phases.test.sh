@@ -82,8 +82,13 @@ ADDED = {"01-product": ["discovery-roots", "tooling-deploy"]}
 # edges and policy-worker's binding placeholders (tooling/deploy/
 # fleet-stubs.mjs). The modules move whole into 01-product — nothing is lost,
 # and nothing else is allowed to move with them.
+# 07-domain followed when the `domain` input went: its one component ships
+# parked (it subscribes to no environment until an owner wires a zone), so a
+# landing of its own deployed nothing, and an on/off switch for a component
+# that is already off was one more question for nothing.
 FOLDED = {"02-foundation": "01-product", "03-infrastructure": "01-product",
-          "04-workers": "01-product", "05-edge": "01-product", "06-console": "01-product"}
+          "04-workers": "01-product", "05-edge": "01-product", "06-console": "01-product",
+          "07-domain": "01-product"}
 HOOK_ONLY = {"08-docs"}
 
 by_name = {p["name"]: p for p in phases}

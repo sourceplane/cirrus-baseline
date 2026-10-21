@@ -85,6 +85,12 @@ epic     infra-baselining            "Infra baselining — <Product name>"   own
        └─ task BASE-9  Record the live deployment                 orun/BASE-9-08-docs
 ```
 
+> **Since then.** `02`–`06` folded into `01-product` (`baseline-v22`, one
+> landing), and `07-domain` followed in `baseline-v24` when the `domain` input
+> was removed: its component ships parked, so it lands in `01-product`. A
+> bootstrap today opens two milestones, `01-product` and `08-docs`. The tree
+> above is the shape BT1 shipped, kept as the record.
+
 All of it is opened by the blueprint's run-level `hooks.preInstantiate`
 (orun ≥ v2.60) before the first phase places — the whole tree at once, in
 this order — and each phase's own `pre` hook then finds its task by title to
