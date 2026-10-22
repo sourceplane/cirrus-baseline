@@ -1,6 +1,6 @@
 # Decisions
 
-Last updated: 2026-08-04
+Last updated: 2026-10-22
 
 Cirrus forked the Lumen baseline and became the Cloudflare-only one. This file
 records the decisions that hold for THIS baseline. Lumen's decision log is not
@@ -86,6 +86,18 @@ where Cirrus diverged the divergence is the entry.
   the baseline's planning state stay in the baseline. A product's docs speak
   about the product, not about the factory that made it. `testing/leak.test.sh`
   gates that promise by deriving what every phase would place.
+- **The console asks for no domain; the domain is set later**
+  (`baseline-v25`). A product goes live on workers.dev and nothing in the
+  build needs a domain, so `productdomain` is an optional build input, empty
+  by default, and the card asks for neither it nor the `apibaseurl` derived
+  from it. Empty, the rebrand writes the reserved placeholder
+  `<reponame>.example.com` wherever the domain goes — the logic that uses a
+  domain stays in the components, waiting for one — and defaults the CLI's
+  `DEFAULT_API_URL` to the product's own prod API on workers.dev
+  (`<brandSlug>-api-edge-prod.<subdomain>.workers.dev`), which answers from
+  the first deploy. Setting the domain is replacing one string; the
+  product's `ai/context/operations.md` ("Setting the domain later") is the
+  checklist.
 - Component catalog docs are generated from `component.yaml`
   (`tooling/catalog/gen-component-docs.mjs --check` fails on drift). Prose
   that is genuinely per-component belongs in `specs/`.

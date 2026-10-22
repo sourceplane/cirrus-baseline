@@ -20,9 +20,9 @@
 #      because that already happened once with a version pin;
 #   3. brand it as `01-product`'s hook chain does, then `rebrand.mjs --verify`;
 #   4. run the leak rules over the REAL FILES rather than the derivation;
-#   5. check the API base the product ends up with against the rule
-#      `blueprint.yaml` states as its `derive` — the last mile of BE3's gate,
-#      in the product;
+#   5. check the API base the product ends up with against the no-domain rule
+#      — its own prod API on workers.dev, since the console asks for no
+#      domain — and that the domain it was born without is the placeholder;
 #   6. THE PHASED SEQUENCE THROUGH A REBRAND: place 01, brand, then place the
 #      phases that follow. This is the step no test in this repository has ever
 #      taken, and it is where BE-O12's two defects lived.
@@ -163,30 +163,69 @@ print(f"   {len(placed)} product files; ai/context is exactly "
       f"{len(ALLOWED_AI)}; no factory, no provenance prose")
 PY
 
-# ── the derived API base, in the product ───────────────────────────────────
-# BE3 states `derive: "https://api.{productdomain}"` in blueprint.yaml and holds
-# it equal to rebrand.mjs's fallback. Both of those are checks on the RULES.
-# This checks the value a product ends up with.
-echo "── the API base the product ends up with"
+# ── the API base, and the domain, the product ends up with ─────────────────
+# The console asks for no domain (blueprint.yaml declares neither
+# `productdomain` nor the `apibaseurl` that was derived from it), so the
+# fixture carries none, as a console build would. With no domain the CLI's
+# default is the product's own prod API on workers.dev: api-edge's prod Worker
+# on the fixture's subdomain. That rule is computed HERE, from the fixture and
+# the placed api-edge's own config — not read back from rebrand.mjs — so the
+# value is held to the Worker the product actually deploys. Everything the
+# check depends on must be present, or it fails rather than passing blind.
+echo "── the API base and the domain the product ends up with"
 python3 - "$tree" "$root" <<'PY'
 import json, pathlib, re, sys
 import yaml
 tree, root = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-man = yaml.safe_load((root / "blueprint.yaml").read_text())["spec"]
-derive = next((f.get("derive") for f in man["inputs"] if f["key"] == "apibaseurl"), None)
-if not derive:
-    sys.exit("blueprint.yaml no longer derives apibaseurl — this check has gone blind")
 vals = json.loads((root / "tests/fixtures/acme.json").read_text())
-want = re.sub(r"\{([a-z]+)\}",
-              lambda m: {"productdomain": vals["productdomain"]}[m.group(1)], derive)
+if (vals.get("productdomain") or "").strip():
+    sys.exit("tests/fixtures/acme.json carries a domain, and a console build supplies "
+             "none — this check is the no-domain rule and would be checking another")
+reponame, subdomain = vals.get("reponame"), vals.get("subdomain")
+if not reponame or not subdomain:
+    sys.exit("tests/fixtures/acme.json has no reponame or subdomain — gone blind")
+brand_slug = vals.get("brandSlug") or reponame
+
+# The Worker's name, from the placed product: wrangler's top-level `name`,
+# deployed with `--env prod`, which appends `-prod`.
+tpl = (tree / "apps/api-edge/wrangler.template.jsonc").read_text()
+m = re.search(r'^\s*"name":\s*"([^"]+)"', tpl, re.M)
+if not m:
+    sys.exit("apps/api-edge/wrangler.template.jsonc declares no name — gone blind")
+worker = m.group(1)
+if worker != f"{brand_slug}-api-edge":
+    sys.exit(f"FAIL: the product's api-edge Worker is {worker!r}, not "
+             f"{brand_slug}-api-edge — the Worker-name rule did not hold")
+comp = yaml.safe_load((tree / "apps/api-edge/component.yaml").read_text())
+deploy = comp["spec"]["parameters"].get("deployCommand", "")
+if "--env prod" not in deploy:
+    sys.exit(f"api-edge deploys with {deploy!r}, not --env prod — the prod Worker's "
+             f"name is no longer <name>-prod, and this rule needs restating")
+want = f"https://{worker}-prod.{subdomain}.workers.dev"
+
+# The same URL the card verifies a bootstrap by, for env=prod.
+card = yaml.safe_load((root / "blueprint.yaml").read_text())["spec"]
+verify = [u.format(reponame=reponame, subdomain=subdomain, env="prod")
+          for u in card["verify"]["urls"]]
+if f"{want}/health" not in verify:
+    sys.exit(f"FAIL: {want}/health is not a URL blueprint.yaml verifies: {verify}")
+
 brand = (tree / "packages/cli/src/brand.ts").read_text()
 m = re.search(r'DEFAULT_API_URL = "([^"]+)"', brand)
 if not m:
     sys.exit("packages/cli/src/brand.ts no longer declares DEFAULT_API_URL — gone blind")
 if m.group(1) != want:
-    sys.exit(f"FAIL: the product's DEFAULT_API_URL is {m.group(1)!r}; "
-             f"blueprint.yaml's derive over this fixture says {want!r}")
-print(f"   DEFAULT_API_URL is {want} — the rule blueprint.yaml declares")
+    sys.exit(f"FAIL: the product's DEFAULT_API_URL is {m.group(1)!r}; with no "
+             f"domain it must be its own prod API on workers.dev, {want!r}")
+print(f"   DEFAULT_API_URL is {want} — the prod API, on workers.dev")
+
+# And the domain: the reserved placeholder wherever it goes.
+placeholder = f"{reponame}.example.com"
+intent = (tree / "intent.yaml").read_text()
+base = re.findall(r"^\s*BASE_DOMAIN:\s*(\S+)", intent, re.M)
+if not base or set(base) != {placeholder}:
+    sys.exit(f"FAIL: intent.yaml's BASE_DOMAIN is {base}, not the placeholder {placeholder}")
+print(f"   BASE_DOMAIN is {placeholder} in {len(base)} environment(s) — for an owner to replace")
 PY
 
 # ── THE PHASED SEQUENCE THROUGH A REBRAND ──────────────────────────────────

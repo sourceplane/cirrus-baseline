@@ -54,18 +54,36 @@ green run with nothing in it — so the phase and the switch are gone, and the
 task contract's `affects` leaves the component out: there is nothing in it
 to re-plan.
 
+A product is born without a domain: the console asks for none, so every
+place the domain goes carries the reserved placeholder `<reponame>.example.com`
+(RFC 2606, never anyone's real domain) — `BASE_DOMAIN` and
+`CONSOLE_CUSTOM_DOMAIN` in `intent.yaml`, api-edge's `CONSOLE_CUSTOM_DOMAIN`,
+identity-worker's `OAUTH_ALLOWED_CONSOLE_ORIGINS` (beside the workers.dev
+console origin, so sign-in works meanwhile), notifications-worker's
+`EMAIL_FROM_ADDRESS` (mail from it does not deliver until a real, verified
+domain replaces it), billing-worker's `POLAR_SUCCESS_URL`, and the api-edge
+CORS tests. The CLI's `DEFAULT_API_URL` is the product's prod API on
+workers.dev instead. The product's `ai/context/operations.md` ("Setting the
+domain later") is the owner's checklist.
+
 Wiring it is a normal pull request in the product, once the zone exists:
 
-1. **The zone first.** The product zone (e.g. `acme.dev`) must already exist
+1. **Set the domain.** Replace the placeholder everywhere it stands
+   (`git grep -l <reponame>.example.com`), and set `productdomain` in
+   `.rebrand/values.json`, which `08-docs` reads to probe the domain.
+2. **The zone first.** The product zone (e.g. `acme.dev`) must already exist
    in the Cloudflare account the product deploys into, created in the
    dashboard; zone creation is an account-plan operation the platform does
    not broker. The terraform manages records and routes IN the zone, not the
    zone itself — without it the plan fails with *zone not found* (or the
    brokered token's account is not the zone's).
-2. **Restore the `subscribe` block** the component carries commented out,
+3. **Restore the `subscribe` block** the component carries commented out,
    and finish the provider-v5 re-import its comment names (the component's
-   `README.md` says where that migration stands).
-3. **Land it.** The convergence on `main` applies it; check the product
+   `README.md` says where that migration stands). Its `baseDomain` is the
+   baseline's domain, so the rebrand made it the product's placeholder and
+   replacing the placeholder sets it; its `workerNamePrefix` is the
+   baseline's console Worker, which the rebrand renamed to the product's.
+4. **Land it.** The convergence on `main` applies it; check the product
    resolves on its own domain (DNS propagation applies), then re-run
    [`08-docs`](08-docs.md) so the deployment manifest records the
    custom-domain URLs.
@@ -77,11 +95,11 @@ Wiring it is a normal pull request in the product, once the zone exists:
 | `--out` | `$HOME/sourceplane/acme` | a flag, not an input; created if absent |
 | `reponame` | `acme` | REQUIRED. Lowercase slug (`^[a-z][a-z0-9-]*$`); repo becomes `<githuborg>/<reponame>` |
 | `productname` | `Acme Cloud` | REQUIRED. Display name |
-| `productdomain` | `acme.dev` | REQUIRED. Product domain |
+| `productdomain` | `""` (default) | NOT ASKED, default empty. The product goes live on workers.dev; empty brands the reserved placeholder `<reponame>.example.com` wherever the domain goes (above), for an owner to set later. Pass it only for a product that already has its domain |
 | `githuborg` | `sourceplane` | REQUIRED. The org or user the repo is created under |
 | `orunWorkspace` | `ws_FGBDTQ8T` | workspace id. Unset, the workspace the build runs in (ORUN_WORKSPACE); with none anywhere, a placeholder that fails loudly rather than silently cross-tenanting |
 | `subdomain` | `rahulvarghesepullely` | workers.dev subdomain of the Cloudflare account you deploy into. A console or `--from bst_…` build reads it from the Cloudflare connection; pass it only for a hand-run build |
-| `apibaseurl` | `https://api.acme.dev` | CLI default API base; empty derives from `productdomain` |
+| `apibaseurl` | `""` (default) | CLI default API base (`DEFAULT_API_URL`). Empty derives it: with no domain, the product's own prod API on workers.dev, `https://<brandSlug>-api-edge-prod.<subdomain>.workers.dev` (`brandSlug` defaults to `reponame`), which answers from the first deploy; with a domain, `https://api.<productdomain>` |
 | `epicSlug` | `infra-baselining` (default) | the epic every phase files its task under |
 
 ## Prerequisites
@@ -163,7 +181,6 @@ orun new --blueprint repo-blueprint.yaml \
   --out $HOME/sourceplane/acme --run-hooks --phase 01-product \
   --set reponame=acme \
   --set productname="Acme Cloud" \
-  --set productdomain=acme.dev \
   --set githuborg=sourceplane \
   --set orunWorkspace=ws_ABCD1234 \
   --set subdomain=rahulvarghesepullely

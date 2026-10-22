@@ -71,7 +71,7 @@ cd cirrus
 orun new --blueprint repo-blueprint.yaml \
   --out ~/sourceplane/acme --run-hooks --resume \
   --set reponame=acme --set productname="Acme Cloud" \
-  --set productdomain=acme.dev --set githuborg=sourceplane \
+  --set githuborg=sourceplane \
   --set orunWorkspace=ws_XXXXXXXX \
   --set subdomain=<workers-dev-subdomain>
 ```
@@ -81,6 +81,16 @@ into (Workers & Pages → your subdomain). A build started from the console, or
 with `orun baseline new --from bst_…`, never asks for it: the platform reads
 it from the workspace's Cloudflare connection, the same one the deploy tokens
 mint from. Only a hand-run build like this one passes it.
+
+The blueprint's **required** inputs — `reponame`, `productname`,
+`githuborg` — are validated before anything runs. The domain is not one of
+them, and the console does not ask for it: the product goes live on
+workers.dev, and `productdomain` defaults to empty, which brands the
+reserved placeholder `<reponame>.example.com` wherever the domain goes
+(`BASE_DOMAIN`, the console's custom origins, the sender address, the
+checkout return URL) for an owner to replace later (§3), while the CLI's
+default API is the product's own prod API on workers.dev. Pass
+`--set productdomain=` only for a product that already has its domain.
 
 **`--run-hooks` is the difference between placing files and bootstrapping a
 product.** Without it `orun new` writes the tree and stops: no repo is
@@ -115,7 +125,7 @@ phase in that folder.
 orun new --blueprint repo-blueprint.yaml --out ~/sourceplane/acme --run-hooks \
   --phase 01-product \
   --set reponame=acme --set productname="Acme Cloud" \
-  --set productdomain=acme.dev --set githuborg=sourceplane \
+  --set githuborg=sourceplane \
   --set orunWorkspace=ws_XXXXXXXX --set subdomain=<workers-dev-subdomain>
 
 # every later phase reads identity back from the placed tree — but the
@@ -209,10 +219,12 @@ every phase's state and is the flag for that.
 
 ## 3. After the baseline is live
 
-- **Custom domain**: the `cloudflare-domain` component is already in the
-  product, parked (it subscribes to no environment). Create the product zone
-  in Cloudflare, restore the component's commented-out `subscribe` block in
-  an ordinary PR (see
+- **Custom domain**: the product is born without one — every place the
+  domain goes carries the placeholder `<reponame>.example.com`, and the
+  `cloudflare-domain` component is already in the product, parked (it
+  subscribes to no environment). Replace the placeholder with the domain,
+  create the product zone in Cloudflare, restore the component's
+  commented-out `subscribe` block in an ordinary PR (see
   [docs/phases/01-product.md](docs/phases/01-product.md#the-custom-domain--parked)),
   and re-run `--phase 08-docs` once it converges so the docs pick up the
   domain URLs.
@@ -262,7 +274,7 @@ that logic. Then move the registry row in orun-cloud's
 | `unknown flag: --phase`, `cannot unmarshal !!map into []scaffold.Hook`, or `orun.run/watch@v1 has no parameter "sha"` | The CLI is below the v2.58.11 floor. This blueprint is not readable by an older one. |
 | A fresh build fails in a worker deploy with `10143` (service binding target not found) | The worker does not wait on `policy-worker`, whose pre-deploy places every binding target (`tooling/deploy/fleet-stubs.mjs`): its `dependsOn: policy-worker` must be `mode: enforced`. `testing/fleet-stubs.test.sh` checks every binding holder. |
 | The product's `intent.yaml` says `workspace: ws_SET_ME`, or its secret refs name the repository (`secret://<repo>/…`) | `orunWorkspace` was empty: set it, or run the build in the workspace (ORUN_WORKSPACE) with a CLI ≥ v2.58.11, which fills it from there. |
-| `✕ input "productdomain" is required` | Required inputs are validated before anything else, so this names the key nobody typed. All four requireds — `reponame`, `productname`, `productdomain`, `githuborg` — must be set on every invocation, including single-phase ones. |
+| `✕ input "productname" is required` | Required inputs are validated before anything else, so this names the key nobody typed. All three requireds — `reponame`, `productname`, `githuborg` — must be set on every invocation, including single-phase ones. The domain is not one of them (since baseline-v25): a product is born with the placeholder `<reponame>.example.com`. |
 | Console/edge smoke fails right after the FIRST deploy of a worker | workers.dev route propagation race — the deploy lane's smoke retries with backoff (stack-tectonic ≥ 0.18.2); a convergence resume clears older pins. |
 | Terraform lane: "state already locked" by ITS OWN plan | Backend lock-release race — a convergence resume clears it. |
 | Environment cannot observe GitHub Actions (gh 403) | `orun.pr/land@v1` and `orun.run/watch@v1` fall back to plain REST automatically. If even REST Actions is blocked, the watch reports it rather than hanging — verify the run out-of-band before the next phase. |

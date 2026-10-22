@@ -65,10 +65,12 @@ custom domain to pick up the domain URLs.
 ## Inputs
 
 `--out` is the product repo. The blueprint's required inputs — `reponame`,
-`productname`, `productdomain`, `githuborg` — are validated before any phase
-runs, so pass them on every invocation (a `--values` file beats repeating
-`--set`); everything else this phase needs it reads back from the placed
-tree. See [the phases README](README.md).
+`productname`, `githuborg` — are validated before any phase runs, so pass
+them on every invocation (a `--values` file beats repeating `--set`);
+everything else this phase needs it reads back from the placed tree,
+`productdomain` included: the custom-domain URLs are probed only when the
+product's `.rebrand/values.json` names a domain, so a product built without
+one skips them until an owner sets it. See [the phases README](README.md).
 
 ## Example commands
 

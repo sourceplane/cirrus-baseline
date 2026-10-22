@@ -860,3 +860,98 @@ off, was one more question and one more PR for no effect.
 | manifest, phases, coverage, rebrand, retouch, console-artifact, bootstrap-defer, fleet-stubs | all pass |
 | `testing/leak.test.sh` (orun 2.58.11, the CI pin) | pass — 2 context files, no factory paths |
 | `testing/placement.test.sh` (orun 2.58.11) | pass — 1087 product files, the same count as with `domain` forced on before; `01-product → 08` place through the rebrand; `--resume` keeps the branding |
+
+## The domain is set later (2026-10-22, `baseline-v25`)
+
+The console asked for the product's domain, with help text saying it did not
+need to exist yet — and nothing in the build needed one: the product answers
+on workers.dev from its first deploy, the custom-domain component ships
+parked (above), and every probe a bootstrap runs is a workers.dev URL. A
+domain is an owner's step after the bootstrap, so the form no longer asks for
+it. Nothing that uses a domain was removed: it stays where it is, carrying a
+placeholder until an owner sets the real one.
+
+### What shipped
+
+- `blueprint.yaml` declares no `productdomain` input, and no `apibaseurl`
+  either: it was `derive: "https://api.{productdomain}"`, and a card can only
+  derive from inputs it declares. The card asks for the product's name alone
+  (`reponame`, `githuborg` and `subdomain` are read from the repository and
+  the Cloudflare connection).
+- `repo-blueprint.yaml`'s `productdomain` is optional, default empty; its
+  description names every place the domain goes. A hand-run build may still
+  pass `--set productdomain=` for a product that already has its domain.
+  `apibaseurl` stays, default empty. The values template still writes
+  `"productdomain": ""`, which `hooks/render-deployment-docs.sh` reads and,
+  being empty, skips the custom-domain probes cleanly.
+- `rebrand.mjs` no longer requires it. Empty, it brands the reserved
+  placeholder `<reponame>.example.com` (RFC 2606 — never someone else's
+  domain) wherever this baseline's `cirrus-baseline.dev` stands, so setting
+  it later is replacing one string. It lands in `intent.yaml` (`BASE_DOMAIN`,
+  and `CONSOLE_CUSTOM_DOMAIN` — the parked `cloudflare-domain` component's),
+  api-edge's `CONSOLE_CUSTOM_DOMAIN`, identity-worker's
+  `OAUTH_ALLOWED_CONSOLE_ORIGINS` (which also lists the workers.dev console
+  origin, so sign-in keeps working), notifications-worker's
+  `EMAIL_FROM_ADDRESS` (`no-reply@mail.<domain>` — mail from the placeholder
+  does not deliver until a real, verified domain is set), billing-worker's
+  `POLAR_SUCCESS_URL`, and the `tests/api-edge` CORS tests. No component
+  logic changed.
+- The CLI's default API base, with no domain, is the product's own live prod
+  API: `https://<brandSlug>-api-edge-prod.<subdomain>.workers.dev` — the
+  Worker-name rule the rebrand applies to every Worker (`<brandSlug>-<base>`,
+  `brandSlug` defaulting to `reponame`) plus the `-prod` wrangler appends for
+  api-edge's `--env prod`, the same URL the card's `verify` probes. With a
+  domain it is still `https://api.<domain>`; an explicit `apibaseurl` wins
+  either way. The rebrand's `https://api.<domain>` pair writes this value,
+  so the SDK's `baseUrl` doc comment and README example name it too, not the
+  placeholder.
+- The product's `ai/context/operations.md` gains "Setting the domain later":
+  replace the placeholder everywhere (`git grep -l`), set `productdomain` in
+  `.rebrand/values.json` for the docs flow, create the zone and restore
+  `cloudflare-domain`'s commented-out `subscribe` block, verify the mail
+  domain for Cloudflare Email, re-point `DEFAULT_API_URL` if wanted, then
+  merge and run the docs flow.
+- `cloudflare-domain`'s `baseDomain` and `workerNamePrefix` (component
+  parameters and terraform defaults) read `cirrus.app` and
+  `cirrus-web-console-next`, from before this baseline's rename — the rebrand
+  has no rule for those, so every product inherited them and replacing its
+  placeholder would not have reached them. They now read the baseline's own
+  `cirrus-baseline.dev` and `cirrus-baseline-web-console-next`, which the
+  rebrand turns into the product's placeholder and console Worker (fixture:
+  `acme-cloud.example.com`, `acme-cloud-web-console-next`). The component
+  stays parked; nothing deploys differently.
+  `docs/phases/01-product.md`, `docs/phases/README.md`, `08-docs.md` and
+  `BOOTSTRAP.md` say the domain is not asked; `baseline.yml`'s blueprint
+  read sets none.
+
+### What the tests had to become
+
+- `tests/fixtures/acme.json` carries no domain, so the leak gate and the
+  placement tier exercise exactly what a console build supplies.
+- `testing/placement.test.sh`'s "API base the product ends up with" read the
+  card's `derive`, which is gone. It now computes the no-domain rule itself —
+  the placed api-edge's own Worker name and `--env prod`, the fixture's
+  subdomain, and the card's `verify` URL for prod — and holds the placed
+  product's `DEFAULT_API_URL` to it, failing rather than passing blind if the
+  fixture carries a domain or any input to the rule is missing. It also checks
+  `BASE_DOMAIN` is the placeholder in every environment.
+- `testing/rebrand.test.sh` pins, on real lines of this repository: an absent
+  and an empty domain brand `acme-cloud.example.com`; no domain gives the
+  workers.dev prod API (through three passes, and named by `brandSlug` when
+  one is given); a domain gives `https://api.<domain>`; an explicit
+  `apibaseurl` wins.
+- `testing/manifest.test.sh`'s block holding the card's `derive` equal to
+  rebrand's fallback is inert with no `derive` declared, and was left as it
+  is.
+
+### Verification
+
+| check | result |
+|---|---|
+| manifest, phases, coverage, rebrand, retouch, console-artifact, bootstrap-defer, fleet-stubs | all pass; `rebrand.test.sh` 22 checks (7 new). Against the previous `rebrand.mjs` 6 of the 7 new checks fail (the with-domain one is unchanged behaviour) |
+| `repo-blueprint.yaml` read by orun 2.58.11 with no domain (`baseline.yml`'s step) | resolves; before this change `✕ input "productdomain" is required` |
+| `testing/leak.test.sh` (orun 2.58.11) | pass — 1087 files derived, 2 context files, no factory paths |
+| `testing/placement.test.sh` (orun 2.58.11) | pass — 1087 product files, as before; `DEFAULT_API_URL` `https://acme-cloud-api-edge-prod.acme.workers.dev`; `BASE_DOMAIN` `acme-cloud.example.com` in 3 environments. With rebrand pointed at the stage Worker it fails |
+| the placed product | 31 lines in 8 files carry `acme-cloud.example.com` — 28 at the six domain sites, 2 in `operations.md` naming it, 1 in `deployment.md` until `08-docs` re-renders it; no file carries `cirrus-baseline.dev`; `rebrand --verify` clean |
+| `@saas/api-edge-tests` (after `wire:fixture`) | 20 suites, 403 tests pass in this repository and in the placed product, whose CORS tests assert the placeholder origins |
+| `hooks/render-deployment-docs.sh` on the placed product (curl and orun stubbed) | `"productdomain": ""`: exit 0, the 4 workers.dev URLs probed, no custom-domain rows; with a domain: 6 probed, 2 rows |
