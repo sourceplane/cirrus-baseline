@@ -88,7 +88,7 @@ variable "terraformVersion" {
 
 variable "baseDomain" {
   type        = string
-  default     = "cirrus.app"
+  default     = "cirrus-baseline.dev"
   description = "Root domain to manage (from BASE_DOMAIN env or component parameter)"
 }
 
@@ -104,7 +104,7 @@ variable "zoneMode" {
 
 variable "workerNamePrefix" {
   type        = string
-  default     = "cirrus-web-console-next"
+  default     = "cirrus-baseline-web-console-next"
   description = "Worker name prefix for the new console; full Worker service name is {prefix}-{environment}"
 }
 

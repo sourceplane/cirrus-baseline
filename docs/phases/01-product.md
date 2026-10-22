@@ -78,10 +78,11 @@ Wiring it is a normal pull request in the product, once the zone exists:
    zone itself — without it the plan fails with *zone not found* (or the
    brokered token's account is not the zone's).
 3. **Restore the `subscribe` block** the component carries commented out,
-   set its own `baseDomain` and `workerNamePrefix` parameters (the zone, and
-   the console Worker's name without its environment — they are not the
-   placeholder), and finish the provider-v5 re-import its comment names (the
-   component's `README.md` says where that migration stands).
+   and finish the provider-v5 re-import its comment names (the component's
+   `README.md` says where that migration stands). Its `baseDomain` is the
+   baseline's domain, so the rebrand made it the product's placeholder and
+   replacing the placeholder sets it; its `workerNamePrefix` is the
+   baseline's console Worker, which the rebrand renamed to the product's.
 4. **Land it.** The convergence on `main` applies it; check the product
    resolves on its own domain (DNS propagation applies), then re-run
    [`08-docs`](08-docs.md) so the deployment manifest records the

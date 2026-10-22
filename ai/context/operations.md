@@ -165,10 +165,9 @@ To set it, in one pull request:
 2. **Create the zone** in the Cloudflare account the product deploys into
    (dashboard; zone creation is not brokered), then restore the `subscribe`
    block `infra/terraform/cloudflare-domain/component.yaml` carries
-   commented out, and set that component's own `baseDomain` and
-   `workerNamePrefix` parameters — the domain, and
-   `cirrus-baseline-web-console-next` — which are not the placeholder. Its
-   `README.md` says where its provider migration stands.
+   commented out. Its `baseDomain` is the placeholder too, so step 1 already
+   set it, and its `workerNamePrefix` already names this product's console
+   Worker. Its `README.md` says where its provider migration stands.
 3. **Verify the mail domain** (`mail.<domain>`) in Cloudflare Email Service
    (DKIM/SPF), or `EMAIL_FROM_ADDRESS` still does not deliver.
 4. **Re-point the CLI, if wanted.** Built without a domain, the CLI's

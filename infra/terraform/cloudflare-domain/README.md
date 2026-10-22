@@ -17,8 +17,8 @@ declarations:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `BASE_DOMAIN` | Root domain for the zone | `cirrus.app` |
-| `CONSOLE_CUSTOM_DOMAIN` | Custom domain for the console Worker | `stage.cirrus.app` |
+| `BASE_DOMAIN` | Root domain for the zone | `cirrus-baseline.dev` |
+| `CONSOLE_CUSTOM_DOMAIN` | Custom domain for the console Worker | `stage.cirrus-baseline.dev` |
 
 These are exported as `TF_VAR_*` by the Orun job template and consumed by
 Terraform. The same variables are available to Workers (via `wrangler.jsonc`
@@ -45,9 +45,9 @@ vars) for runtime CORS decisions.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `baseDomain` | yes | Root domain (e.g. `cirrus.app`) |
+| `baseDomain` | yes | Root domain (e.g. `cirrus-baseline.dev`) |
 | `zoneMode` | yes | `existing` or `managed` |
-| `workerNamePrefix` | yes | Worker name prefix (e.g. `cirrus-web-console-next`); fully-qualified service name is `{workerNamePrefix}-{environment}` |
+| `workerNamePrefix` | yes | Worker name prefix (e.g. `cirrus-baseline-web-console-next`); fully-qualified service name is `{workerNamePrefix}-{environment}` |
 | `stackName` | yes | Terraform stack identifier |
 | `terraformDir` | yes | Path to Terraform root |
 | `terraformVersion` | yes | Terraform CLI version |
@@ -83,9 +83,9 @@ After merge to main, verify:
 
 1. `terraform apply` succeeds in CI (`github-push-main` trigger).
 2. Workers custom domains show `active` status in Cloudflare (Workers → the
-   `cirrus-web-console-next-{env}` Worker → Triggers → Custom Domains).
-3. `https://stage.cirrus.app/` serves the stage console (web-console-next).
-4. `https://prod.cirrus.app/` serves the prod console (web-console-next).
+   `cirrus-baseline-web-console-next-{env}` Worker → Triggers → Custom Domains).
+3. `https://stage.cirrus-baseline.dev/` serves the stage console (web-console-next).
+4. `https://prod.cirrus-baseline.dev/` serves the prod console (web-console-next).
 5. SSL certificates are provisioned (automatic via Cloudflare).
 
 ## Outputs

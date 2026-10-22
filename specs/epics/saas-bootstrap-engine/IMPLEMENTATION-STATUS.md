@@ -908,11 +908,18 @@ placeholder until an owner sets the real one.
 - The product's `ai/context/operations.md` gains "Setting the domain later":
   replace the placeholder everywhere (`git grep -l`), set `productdomain` in
   `.rebrand/values.json` for the docs flow, create the zone and restore
-  `cloudflare-domain`'s commented-out `subscribe` block (and set its own
-  `baseDomain` and `workerNamePrefix`, which still read `cirrus.app` and
-  `cirrus-web-console-next` from before this baseline's rename — rebrand has
-  no rule for them), verify the mail domain for Cloudflare Email, re-point
-  `DEFAULT_API_URL` if wanted, then merge and run the docs flow.
+  `cloudflare-domain`'s commented-out `subscribe` block, verify the mail
+  domain for Cloudflare Email, re-point `DEFAULT_API_URL` if wanted, then
+  merge and run the docs flow.
+- `cloudflare-domain`'s `baseDomain` and `workerNamePrefix` (component
+  parameters and terraform defaults) read `cirrus.app` and
+  `cirrus-web-console-next`, from before this baseline's rename — the rebrand
+  has no rule for those, so every product inherited them and replacing its
+  placeholder would not have reached them. They now read the baseline's own
+  `cirrus-baseline.dev` and `cirrus-baseline-web-console-next`, which the
+  rebrand turns into the product's placeholder and console Worker (fixture:
+  `acme-cloud.example.com`, `acme-cloud-web-console-next`). The component
+  stays parked; nothing deploys differently.
   `docs/phases/01-product.md`, `docs/phases/README.md`, `08-docs.md` and
   `BOOTSTRAP.md` say the domain is not asked; `baseline.yml`'s blueprint
   read sets none.
