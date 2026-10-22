@@ -132,6 +132,44 @@ check "…in every later phase's pass too" \
   apps/w/src/ua.ts 'const UA = "Cirrus-Webhooks/1.0";' \
   'const UA = "CirrusNext-Webhooks/1.0";' 3
 
+echo "── rebrand: the domain is set later"
+# The console asks for no domain. Absent or empty, the reserved placeholder
+# <reponame>.example.com stands wherever the domain goes, and the CLI points at
+# the product's own prod API on workers.dev — api-edge's prod Worker, named by
+# the same rule as every Worker (`<brandSlug>-api-edge`, `-prod` from wrangler's
+# `--env prod`). Given a domain, the CLI points at `api.<domain>`. These are
+# real lines of THIS repository, so the identity is its own.
+saved_identity="$identity"
+identity="$here/fixtures/baseline-identity.cirrus-baseline.json"
+nodomain='{"reponame":"acme-cloud","productname":"Acme Cloud","githuborg":"acme-inc","subdomain":"acme"}'
+apiline='export const DEFAULT_API_URL = "https://api.cirrus-baseline.dev";'
+check "no domain given: the reserved placeholder, for an owner to replace later" \
+  "$nodomain" intent.yaml '      BASE_DOMAIN: cirrus-baseline.dev' \
+  '      BASE_DOMAIN: acme-cloud.example.com'
+check "an empty domain is no domain" \
+  '{"reponame":"acme-cloud","productname":"Acme Cloud","productdomain":""}' \
+  intent.yaml '      BASE_DOMAIN: cirrus-baseline.dev' \
+  '      BASE_DOMAIN: acme-cloud.example.com'
+check "no domain: the CLI defaults to the product's prod API on workers.dev" \
+  "$nodomain" packages/cli/src/brand.ts "$apiline" \
+  'export const DEFAULT_API_URL = "https://acme-cloud-api-edge-prod.acme.workers.dev";'
+check "…and keeps it through every later phase's pass" \
+  "$nodomain" packages/cli/src/brand.ts "$apiline" \
+  'export const DEFAULT_API_URL = "https://acme-cloud-api-edge-prod.acme.workers.dev";' 3
+check "…named by the Worker-name rule, so brandSlug names it" \
+  '{"reponame":"acme-cloud","productname":"Acme Cloud","brandSlug":"acme","subdomain":"acme","productdomain":""}' \
+  packages/cli/src/brand.ts "$apiline" \
+  'export const DEFAULT_API_URL = "https://acme-api-edge-prod.acme.workers.dev";'
+check "a domain given: the CLI defaults to api.<domain>" \
+  '{"reponame":"acme-cloud","productname":"Acme Cloud","productdomain":"acme.dev","subdomain":"acme"}' \
+  packages/cli/src/brand.ts "$apiline" \
+  'export const DEFAULT_API_URL = "https://api.acme.dev";'
+check "an explicit apibaseurl wins either way" \
+  "{\"reponame\":\"acme-cloud\",\"productname\":\"Acme Cloud\",\"subdomain\":\"acme\",\"apibaseurl\":\"https://edge.acme.example.net\"}" \
+  packages/cli/src/brand.ts "$apiline" \
+  'export const DEFAULT_API_URL = "https://edge.acme.example.net";'
+identity="$saved_identity"
+
 # A token takes the word/non-word class of its value's edges, so a later rule's
 # `\b` sees the boundary the value would have given it. Here the trailing
 # `cirrus` is glued to the domain and `\bcirrus\b` must NOT match it — which is

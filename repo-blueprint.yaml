@@ -30,8 +30,21 @@ inputs:
     description: Human display name (e.g. "Acme Cloud").
   productdomain:
     type: string
-    required: true
-    description: Product domain (e.g. acme.dev) — BASE_DOMAIN, console custom domains, OAuth origins.
+    default: ""
+    description: >-
+      The product's own domain, once it has one (e.g. acme.dev). NOT ASKED:
+      the product answers on workers.dev from its first deploy, and a domain
+      is an owner's step after it. Empty, the rebrand writes the reserved
+      placeholder `<reponame>.example.com` wherever the domain goes —
+      BASE_DOMAIN and CONSOLE_CUSTOM_DOMAIN in intent.yaml (the parked
+      cloudflare-domain component's), api-edge's CONSOLE_CUSTOM_DOMAIN (CORS),
+      identity-worker's OAUTH_ALLOWED_CONSOLE_ORIGINS (beside the workers.dev
+      console origin, so sign-in works), notifications-worker's
+      EMAIL_FROM_ADDRESS, billing-worker's POLAR_SUCCESS_URL and the api-edge
+      CORS tests — so setting it later is replacing that one string; the
+      product's ai/context/operations.md ("Setting the domain later") says
+      how. Pass it with --set only to brand a hand-run build with a domain
+      it already has.
   pascalName:
     type: string
     default: ""
@@ -47,7 +60,12 @@ inputs:
   apibaseurl:
     type: string
     default: ""
-    description: CLI default API base (default https://api.<productdomain>).
+    description: >-
+      CLI default API base. Empty, rebrand.mjs derives it: with a domain,
+      https://api.<productdomain>; with none, the product's own prod API on
+      workers.dev, https://<brandSlug>-api-edge-prod.<subdomain>.workers.dev
+      (the Worker-name rule; brandSlug defaults to reponame), which answers
+      from the first deploy.
   subdomain:
     type: string
     default: "your-workers-subdomain"

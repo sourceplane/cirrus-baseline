@@ -117,7 +117,7 @@ orun integrations list --org <ws> --json && orun cloud check --org <ws>
 | add a runtime secret | `orun secrets set <KEY> --org <ws> --env <env>` |
 | resolve workspace identity | `orun workspace <ws-id-or-slug>` |
 | check integrations | `orun integrations list --org <ws> --json` |
-| custom domain | `infra/terraform/cloudflare-domain` ships parked (`subscribe.environments: []`). Once the zone exists in the Cloudflare account, restore the `subscribe` block its `component.yaml` carries commented out, merge, then run the docs flow |
+| custom domain | one pull request — see "Setting the domain later" below. `infra/terraform/cloudflare-domain` ships parked (`subscribe.environments: []`) until then |
 | headless/CI credentials | `ORUN_TOKEN` (workspace-scoped) + `GITHUB_TOKEN` |
 
 The ops phases (docs refresh and the original deployment sequence) all live
@@ -133,11 +133,52 @@ orun new --blueprint repo-blueprint.yaml --out <product-checkout> \
 ```
 
 `<values.yaml>` carries this product's identity — at minimum `reponame`,
-`productname`, `productdomain`, `githuborg` and `orunWorkspace`, which the
-blueprint validates before anything runs. `--run-hooks` is what makes a phase
+`productname`, `githuborg` and `orunWorkspace`, which the blueprint validates
+before anything runs. `--run-hooks` is what makes a phase
 land and verify rather than just place files; `--status` previews without
 writing. Every phase is idempotent — re-running a completed one is a no-op
 that re-verifies.
+
+## Setting the domain later
+
+The product runs on workers.dev from its first deploy; a domain is an
+owner's step after it. Wherever the domain goes, this repository says
+`cirrus-baseline.dev` — for a product built without one, the reserved
+placeholder `<reponame>.example.com` (RFC 2606: it reaches nobody). It
+stands in:
+
+| where | what it is |
+|---|---|
+| `intent.yaml` | `BASE_DOMAIN`, and `CONSOLE_CUSTOM_DOMAIN` per environment (`stage.`/`prod.` + the domain) — what `infra/terraform/cloudflare-domain` attaches once it is wired |
+| `apps/api-edge/wrangler.template.jsonc` | `CONSOLE_CUSTOM_DOMAIN` — the console origin CORS allows beside the workers.dev one |
+| `apps/identity-worker/wrangler.template.jsonc` | `OAUTH_ALLOWED_CONSOLE_ORIGINS` — the custom console origin, listed beside the workers.dev one, so sign-in works meanwhile |
+| `apps/notifications-worker/wrangler.template.jsonc` | `EMAIL_FROM_ADDRESS` (`no-reply@mail.<domain>`) — mail from the placeholder does not deliver until a real, verified domain replaces it |
+| `apps/billing-worker/wrangler.template.jsonc` | `POLAR_SUCCESS_URL` — where a checkout returns |
+| `tests/api-edge` | the CORS tests, which assert those origins |
+
+To set it, in one pull request:
+
+1. **Replace the placeholder everywhere**: `git grep -l cirrus-baseline.dev`
+   lists the files. Set `productdomain` in `.rebrand/values.json` to the
+   domain too — the docs flow probes the custom-domain URLs only when it is
+   set.
+2. **Create the zone** in the Cloudflare account the product deploys into
+   (dashboard; zone creation is not brokered), then restore the `subscribe`
+   block `infra/terraform/cloudflare-domain/component.yaml` carries
+   commented out, and set that component's own `baseDomain` and
+   `workerNamePrefix` parameters — the domain, and
+   `cirrus-baseline-web-console-next` — which are not the placeholder. Its
+   `README.md` says where its provider migration stands.
+3. **Verify the mail domain** (`mail.<domain>`) in Cloudflare Email Service
+   (DKIM/SPF), or `EMAIL_FROM_ADDRESS` still does not deliver.
+4. **Re-point the CLI, if wanted.** Built without a domain, the CLI's
+   `DEFAULT_API_URL` (`packages/cli/src/brand.ts`) is the prod API on
+   workers.dev, `https://cirrus-baseline-api-edge-prod.<subdomain>.workers.dev`,
+   which keeps working. Once the API answers on the domain, point it there;
+   `git grep -l` that URL also finds the SDK's doc comment and README
+   example, which name it.
+5. **Merge**, let the convergence apply, then **run the docs flow** (above)
+   so `deployment.md` records the custom-domain URLs.
 
 ## Evolution
 

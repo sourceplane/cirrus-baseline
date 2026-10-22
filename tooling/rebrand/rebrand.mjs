@@ -20,11 +20,12 @@
 //   {
 //     "reponame":            "acme-cloud",          // required — repo slug
 //     "productname":         "Acme Cloud",          // required — display name
-//     "productdomain":       "acme.dev",            // required — product domain
+//     "productdomain":       "acme.dev",            // optional — default <reponame>.example.com (set later)
 //     "pascalName":          "AcmeCloud",           // default: productname, non-alnum stripped
 //     "brandSlug":           "acme",                // default: reponame
 //     "cliBin":              "acme",                // default: reponame
-//     "apibaseurl":          "https://api.acme.dev",// default: https://api.<productdomain>
+//     "apibaseurl":          "https://api.acme.dev",// default: https://api.<productdomain>, or with no
+//                                                   //   domain https://<brandSlug>-api-edge-prod.<subdomain>.workers.dev
 //     "subdomain": "my-subdomain",        // default: "your-workers-subdomain"
 //     "salesEmail":          "sales@acme.dev"       // optional: keeps baseline mailbox if absent
 //   }
@@ -62,7 +63,7 @@ if (!verifyOnly && !valuesPath) {
 }
 if (valuesPath) {
   values = JSON.parse(fs.readFileSync(valuesPath, "utf8"));
-  for (const required of ["reponame", "productname", "productdomain"]) {
+  for (const required of ["reponame", "productname"]) {
     if (typeof values[required] !== "string" || values[required].length === 0) {
       console.error(`rebrand: values file is missing required field "${required}"`);
       process.exit(2);
@@ -163,12 +164,26 @@ function toPascal(s) {
 // All fields are unused under --verify; the fallbacks keep derivation total.
 const reponame = values.reponame ?? "";
 const productname = values.productname ?? "";
-const productdomain = values.productdomain ?? "";
+// The domain is NOT ASKED at bootstrap: a product goes live on workers.dev and
+// an owner sets a domain later. Until then the reserved placeholder
+// `<reponame>.example.com` (RFC 2606 — it can never be someone else's) stands
+// wherever the domain goes, so setting it is replacing one string.
+const domainGiven = (values.productdomain ?? "").trim();
+const productdomain = domainGiven || (reponame ? `${reponame}.example.com` : "");
 const pascalName = values.pascalName ?? toPascal(productname);
 const brandSlug = values.brandSlug ?? reponame;
 const cliBin = values.cliBin ?? reponame;
-const apibaseurl = values.apibaseurl ?? `https://api.${productdomain}`;
 const subdomain = values.subdomain ?? "your-workers-subdomain";
+// The CLI's default API base. With a domain it is `api.<domain>`. With none,
+// the placeholder answers nothing, so the CLI points at the API that does:
+// api-edge's prod Worker on the account's workers.dev subdomain, named by the
+// Worker-name rule below (`<brandSlug>-api-edge`; wrangler appends `-prod` for
+// `--env prod`). A product that sets its domain later re-points it.
+const apibaseurl =
+  (values.apibaseurl ?? "").trim() ||
+  (domainGiven
+    ? `https://api.${productdomain}`
+    : `https://${brandSlug}-api-edge-prod.${subdomain}.workers.dev`);
 const salesEmail = values.salesEmail; // optional
 // A `secret://<workspace>/<project>/<env>/<KEY>` ref names the WORKSPACE
 // first and the project (repo) second. In the baseline the two happen to be

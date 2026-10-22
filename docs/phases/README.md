@@ -36,9 +36,17 @@ Every phase lands as a pull request that is checked, then merged: each landing w
 `01-product` takes the product identity once and writes it into the repo
 (`.rebrand/values.json`); every later phase reads it back from the placed
 tree. But the blueprint's **required** inputs — `reponame`, `productname`,
-`productdomain`, `githuborg` — are validated before any phase runs, so
-they must be supplied on every invocation, single-phase ones included. A
-`--values` file is easier than repeating `--set`.
+`githuborg` — are validated before any phase runs, so they must be supplied
+on every invocation, single-phase ones included. A `--values` file is easier
+than repeating `--set`.
+
+- `productdomain` — NOT ASKED, default empty. The product goes live on
+  workers.dev; empty brands the reserved placeholder `<reponame>.example.com`
+  wherever the domain goes (`BASE_DOMAIN`, the console's custom origins, the
+  sender address, the checkout return URL), for an owner to replace later
+  ([01-product](01-product.md#the-custom-domain--parked)), and the CLI's
+  default API is the product's own prod API on workers.dev. Pass it only
+  for a product that already has its domain.
 
 The three the phases used to carry as per-workflow inputs are blueprint
 inputs now, which is how the console can render a form from this document
