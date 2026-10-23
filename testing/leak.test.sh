@@ -91,6 +91,20 @@ for p in placed:
         if p == never or p.startswith(never):
             bad(f"{p} would ship — it is the factory, not the product")
 
+# ── nor an operator's local secrets and state ─────────────────────────────
+# `orun new` snapshots the working tree, so these reach a product only if the
+# blueprint's `ignore` misses them. Matched as the ignore list means them: by
+# basename at any depth, and `.terraform` as any path segment. Any `.env*`
+# counts — a per-environment `.env.production` holds secrets as surely as
+# `.env` does.
+import fnmatch
+LOCAL = (".env*", ".dev.vars", ".dev.vars.*", "*.tfstate", "*.tfstate.backup")
+for p in placed:
+    segs = p.split("/")
+    if ".terraform" in segs[:-1] or any(fnmatch.fnmatchcase(segs[-1], g) for g in LOCAL):
+        bad(f"{p} would ship — an operator's local secret or state file, "
+            f"which the blueprint's `ignore` must exclude")
+
 # ── and by content: PROVENANCE, which rebrand has no rule for ──────────────
 # Deliberately NOT a search for "cirrus". rebrand.mjs rewrites this
 # repository's own name into the product's — that is its whole job — so

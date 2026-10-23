@@ -171,16 +171,17 @@ ignore:
 
   # AN OPERATOR'S LOCAL SECRETS AND STATE, for the same reason: `orun new`
   # snapshots the working tree, so a `--local` build from a checkout someone
-  # has run things in would copy them into somebody else's repository. The
-  # starters' patterns, exactly. Each glob is matched against a path's
-  # basename as well as the whole path, so `**/.env` reaches every depth;
-  # `.terraform` has no glob and so matches any path SEGMENT — the provider
-  # cache under every Terraform root — while the committed
-  # `.terraform.lock.hcl` files are a different segment and still ship. An
-  # `.env.example` is not among them, and would ship.
-  - "**/.env"
-  - "**/.env.local"
-  - "**/.env.*.local"
+  # has run things in would copy them into somebody else's repository. Each
+  # glob is matched against a path's basename as well as the whole path, so
+  # `**/.env*` reaches every depth and every per-environment variant
+  # (`.env.production`, `.env.stage`), which the starters' narrower
+  # `.env`/`.env.local`/`.env.*.local` let through. It would drop an
+  # `.env.example` too; this repository tracks no `.env*` file at all, so
+  # nothing a product needs is lost. `.terraform` has no glob and so matches
+  # any path SEGMENT — the provider cache under every Terraform root — while
+  # the committed `.terraform.lock.hcl` files are a different segment and
+  # still ship. testing/leak.test.sh refuses any of these in a product.
+  - "**/.env*"
   - "**/.dev.vars"
   - "**/.dev.vars.*"
   - .terraform
