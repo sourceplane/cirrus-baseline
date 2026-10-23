@@ -75,7 +75,11 @@ fi
 # ── the gates that ride inside the placement ───────────────────────────────
 # `orun new` prints this line only after running validate + plan --dry-run in
 # the produced tree. Its absence means the tier lost a check without failing.
-grep -q "repo gate: validate + plan --dry-run passed" "$scratch/place.log" \
+# Two spellings: the pinned v2.58.11 prints `repo gate: validate + plan
+# --dry-run passed`; later releases print a summary whose `✓ Verified  intent
+# valid · N components × M envs → J jobs` row is written only when that same
+# gate passed (cmd/orun/new_summary.go), so a pin bump does not turn this red.
+grep -qE "repo gate: validate \+ plan --dry-run passed|Verified +intent valid" "$scratch/place.log" \
   || fail "the placement did not report the repo-scale gate — \`orun validate\`
      and \`orun plan --dry-run\` are Tier 1 checks that ride inside \`orun new\`,
      and a silent loss of them is exactly the regression BE1a was about"
@@ -133,7 +137,7 @@ for missing in sorted(ALLOWED_AI - shipped_ai):
 
 NEVER = ("flows/", "agents/", "tasks/", "specs/", "testing/", "hooks/",
          "docs/phases/", "tooling/rebrand/", "tooling/bootstrap/",
-         "tooling/fork/", "tooling/migrations/",
+         "tooling/fork/", "tooling/migrations/", ".vscode/tasks.json", ".baseline/",
          "FORKING.md", "BOOTSTRAP.md", "repo-blueprint.yaml", "blueprint.yaml")
 for p in placed:
     for never in NEVER:
@@ -148,7 +152,29 @@ for p in placed:
 # what the product ended up with, after every rewrite.
 PROVENANCE = re.compile(
     r"\blumen\b|\bfork(ed)? (of|from)\b|\bbaseline (repo|repository|commit)\b", re.I)
-for rel in sorted(shipped_ai & ALLOWED_AI):
+
+# THE PRODUCT'S OWN DOCS, as placed: rendered from `.baseline/product/` with
+# the product's name. A `{{` left in one is a template that did not render; a
+# `<no value>` is an input it named that the build does not have.
+import json
+vals = json.loads((root / "tests/fixtures/acme.json").read_text())
+# Until 08-docs runs, the two files it rewrites say that nothing is recorded
+# — the baseline's own copies said "LIVE (200)" and "This product is live".
+NOT_YET = {"README.md": "Not recorded yet", "ai/context/deployment.md": "Not rendered yet"}
+PRODUCT_DOCS = {"README.md", "AGENTS.md", "ai/context/deployment.md"}
+for rel in sorted(PRODUCT_DOCS):
+    f = tree / rel
+    if not f.is_file():
+        bad(f"{rel} did not ship")
+        continue
+    text = f.read_text(errors="replace")
+    if "{{" in text or "<no value>" in text:
+        bad(f"{rel} shipped unrendered")
+    if vals["reponame"] not in text and vals["productname"] not in text:
+        bad(f"{rel} does not name the product it shipped in")
+    if rel in NOT_YET and NOT_YET[rel] not in text:
+        bad(f"{rel} claims a deployment before 08-docs has recorded one")
+for rel in sorted((shipped_ai & ALLOWED_AI) | (PRODUCT_DOCS & set(placed))):
     for n, line in enumerate((tree / rel).read_text(errors="replace").splitlines(), 1):
         if PROVENANCE.search(line):
             bad(f"{rel}:{n} tells the product where the BASELINE came from: "

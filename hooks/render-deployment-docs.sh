@@ -88,17 +88,16 @@ mkdir -p ai/context
 if [ ! -f ai/context/operations.md ] && [ -f "$L/ai/context/operations.md" ]; then
   cp "$L/ai/context/operations.md" ai/context/operations.md
   # The template speaks the source repo's name; the product copy must
-  # speak the product's. Reuse the rebrand values, then fill the
-  # rebrand-inert OPSFLOWS placeholder with the baseline this product came
-  # from — the repo whose repo-blueprint.yaml holds the ops phases.
+  # speak the product's. Reuse the rebrand values — after staging the copy,
+  # because rebrand.mjs rewrites only what `git ls-files` lists.
+  #
+  # Nothing else needs filling. The guide used to carry an `OPSFLOWS`
+  # placeholder that this step replaced with the baseline's repository (its
+  # default the retired `sourceplane/cirrus`); it now names no repository and
+  # tells the reader to fetch the phases with `orun baseline new`, which asks
+  # the registry where the baseline lives.
+  git add ai/context/operations.md >/dev/null 2>&1 || true
   node "$L/tooling/rebrand/rebrand.mjs" --values "$vals" --allow-dirty >/dev/null 2>&1 || true
-  opsref="${ORUN_BASELINE_REPO:-sourceplane/cirrus}"
-  python3 - "$opsref" <<'PYOPS'
-import sys
-p="ai/context/operations.md"
-s=open(p).read()
-open(p,"w").write(s.replace("OPSFLOWS", sys.argv[1]))
-PYOPS
   echo "render-docs: healed ai/context/operations.md"
 fi
 

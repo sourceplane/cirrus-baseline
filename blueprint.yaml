@@ -27,7 +27,7 @@ metadata:
     Multi-tenant SaaS on Cloudflare alone: 12 bounded-context Workers behind
     one edge API, a Next.js console, D1 + KV data plane, migrations, and CI
     that converges on merge. One provider, one consent, one token. Live on
-    stage+prod in ~25-30 minutes.
+    stage and prod in about fifteen minutes.
   tags: [saas, cloudflare, d1, nextjs]
 spec:
   source:
@@ -129,7 +129,7 @@ spec:
       from: connection.cloudflare.workersSubdomain
 
   # ── PREVIEW ONLY. `repo-blueprint.yaml`'s `integrations/reconcile` hooks
-  # mint these, brokered, during phase 02. ────────────────────────────────
+  # mint these, brokered, during 01-product. ──────────────────────────────
   # Transcribed from those hooks' own `keys:` and `template:` values, so
   # `testing/manifest.test.sh` compares this list to the document that mints
   # them rather than to a copy of itself — it used to compare against a shell
@@ -179,10 +179,11 @@ spec:
     # this repo at its pinned tag would have nothing to run. `manifestPath` in
     # the registry row names THIS file, the console card; it is not the build.
     blueprint: repo-blueprint.yaml
-    # Was 60, then 30; baseline-v21 measured 14m51s over five landings
-    # (docs/phases/TIMINGS.md). One landing and one deploy per worker should
-    # bring it to about 9 — an estimate until a run measures it.
-    expectedMinutes: 12
+    # Was 60, then 30; baseline-v21 measured 14m51s over five landings.
+    # Fifteen is the one-landing build's budget until a run measures it: the
+    # sum of the phases' own `expectedMinutes` (01-product 13, 08-docs 2),
+    # which testing/manifest.test.sh holds equal to this figure.
+    expectedMinutes: 15
     tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
   verify:
     urls:

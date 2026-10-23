@@ -74,7 +74,16 @@ WAS = {
 # gate requires, which the scaffold flow used to create with a mkdir.
 # `tooling-deploy` arrived with the one-landing bootstrap: policy-worker's
 # pre-deploy runs tooling/deploy/fleet-stubs.mjs in the product's own CI.
-ADDED = {"01-product": ["discovery-roots", "tooling-deploy"]}
+#
+# `root-agents` places the product's AGENTS.md (orun-cloud saas-build-panel
+# BV4): a finished build hands the operator a prompt that ends "clone <repo>
+# and start building on it", and that is the file the agent reads first.
+ADDED = {"01-product": ["discovery-roots", "root-agents", "tooling-deploy"]}
+# REMOVED, deliberately, and argued here rather than by editing WAS. `vscode`
+# shipped `.vscode/tasks.json`, this repository's own agent loop — it runs
+# agents with their sandbox bypassed against `agents/orchestrator.md` and
+# `ai/state.json`, which no product carries. testing/leak.test.sh keeps it out.
+REMOVED = {"01-product": ["vscode"]}
 # FOLDED, deliberately: a landing has a fixed cost, and since the one-landing
 # bootstrap NOTHING between the scaffold and the custom domain is a landing of
 # its own: the order those phases enforced (the data plane before the fleet,
@@ -111,7 +120,8 @@ for name, was in WAS.items():
         continue
     now = sorted(by_name[name].get("modules") or [])
     folded_in = [m for gone, into in FOLDED.items() if into == name for m in WAS[gone]]
-    want = sorted(was + ADDED.get(name, []) + folded_in)
+    gone_now = set(REMOVED.get(name, []))
+    want = sorted(m for m in was + ADDED.get(name, []) + folded_in if m not in gone_now)
     if now != want:
         moved_in = sorted(set(now) - set(want))
         moved_out = sorted(set(want) - set(now))
@@ -280,6 +290,16 @@ for p in phases:
     ids = {h.get("id") for h in hooks_of(p)}
     for slot in ("start", "await", "done", "failed"):
         line = n.get(slot)
+        # `await` IS OPTIONAL, and this baseline authors none (orun-cloud
+        # saas-build-panel BV4). It captions a WAITING event, which is the
+        # convergence or a provider connection `requires.probe` is still
+        # asking for — one fixed sentence is false for one of them. Left
+        # unauthored, orun generates "<title>: <reason>" from the engine's own
+        # reason, which is true for both; a line naming `.meta.waitingOn` would
+        # read "Waiting on waiting for…", because the reasons are whole clauses.
+        # An authored one is still held to every rule below.
+        if not line and slot == "await":
+            continue
         if not line:
             bad(f"phase {p['name']} declares no narrate.{slot} — an operator sees "
                 f"a generated line instead of the one this baseline meant")

@@ -1,7 +1,7 @@
 # cirrus-baseline
 
 Reusable **Cloudflare-only** multi-tenant SaaS starter, built as an
-[Orun](https://opencode.ai/docs) component-native desired-state repo. Identity,
+[Orun](https://github.com/sourceplane/orun) component-native desired-state repo. Identity,
 organizations, projects, RBAC, audit, metering, billing, webhooks, and
 notifications ship as separate bounded-context Cloudflare Workers behind a single
 public edge API, with a Next.js console on Workers + Static Assets — and
@@ -62,12 +62,13 @@ it rather than quiet:
 
 This baseline births new products from one artifact — `repo-blueprint.yaml`,
 run by `orun new` (**[BOOTSTRAP.md](BOOTSTRAP.md)** →
-[docs/phases/](docs/phases/README.md)). It declares nine idempotent phases —
-scaffold, foundation, infrastructure, workers, workers-restore, edge,
-console, optional domain, docs — each landing a verified slice, each
-selectable with `--phase <name>`. Products receive **product-only content**
-(source, infra, CI, their own docs); none of this baseline's machinery
-ships, and a product's docs speak only about the product.
+[docs/phases/](docs/phases/README.md)). It declares two idempotent phases —
+`01-product`, the whole product in one landing, and `08-docs`, the record of
+what went live — each selectable with `--phase <name>`. Products receive
+**product-only content** (source, infra, CI, their own README, `AGENTS.md`
+and context pack, from `.baseline/product/` and `ai/context/`); none of this
+baseline's machinery ships, and a product's docs speak only about the
+product.
 
 ## Prerequisites
 
@@ -135,7 +136,7 @@ released there, and adopted here by bumping the pinned tag.
 
 ## CI
 
-CI is powered by [Orun](https://opencode.ai/docs) with the local Stack Tectonic
+CI is powered by [Orun](https://github.com/sourceplane/orun) with the published Stack Tectonic
 composition stack. `.github/workflows/ci.yml` calls only `orun plan` and
 `orun run` — no direct `pnpm`, `turbo`, Wrangler, or Terraform commands run in
 GitHub Actions. The Orun runtime is pinned where it runs: the `orun-action`
