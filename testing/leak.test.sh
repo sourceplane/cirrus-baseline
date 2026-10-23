@@ -25,7 +25,7 @@
 # When that lands, this file grows the other half — rebrand --verify, and the
 # product's own `orun validate` / `orun plan --dry-run` inside the placed tree.
 #
-# Needs: orun (the pinned version) + python3. No network, no credential.
+# Needs: orun (the pinned version) + python3 with PyYAML. No network, no credential.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
@@ -78,9 +78,13 @@ for missing in sorted(ALLOWED_AI - shipped_ai):
     bad(f"{missing} is declared a product file and would not ship")
 
 # ── the factory never ships ────────────────────────────────────────────────
+# `.vscode/tasks.json` is this repository's agent loop: it runs agents with
+# their sandbox and approvals bypassed against `agents/orchestrator.md` and
+# `ai/state.json`, neither of which a product has. `.baseline/` is this tree's
+# own identity, the FROM side of every rebrand.
 NEVER = ("flows/", "agents/", "tasks/", "specs/", "testing/", "hooks/",
          "docs/phases/", "tooling/rebrand/", "tooling/bootstrap/",
-         "tooling/fork/", "tooling/migrations/",
+         "tooling/fork/", "tooling/migrations/", ".vscode/tasks.json", ".baseline/",
          "FORKING.md", "BOOTSTRAP.md", "repo-blueprint.yaml", "blueprint.yaml")
 for p in placed:
     for never in NEVER:
@@ -99,20 +103,56 @@ for p in placed:
 # so the customer is told their product was forked from Lumen. The file no
 # longer ships — the set gate above sees to that — and this catches the same
 # prose reappearing inside a file that does.
-import re
+#
+# The product's own docs are read from the file their module places them FROM,
+# which is not always the same path here: the README, AGENTS.md and the
+# deployment placeholder come from `.baseline/product/`, because this
+# repository's own README and deployment record are the baseline's.
+import posixpath, re
+import yaml
+bp = yaml.safe_load((root / "repo-blueprint.yaml").read_text())
+source_of = {m["to"]: m["from"] for m in bp.get("modules") or []
+             if m.get("from") and m.get("to")}
+
+# What an agent handed this repository reads first. A finished build's prompt
+# ends "clone <repo> and start building on it", so these must ship, and must be
+# the PRODUCT's.
+PRODUCT_DOCS = {"README.md", "AGENTS.md"} | ALLOWED_AI
+for missing in sorted(PRODUCT_DOCS - set(placed)):
+    bad(f"{missing} would not ship — a product's agent starts there")
+
 PROVENANCE = re.compile(
     r"\blumen\b|\bfork(ed)? (of|from)\b|\bbaseline (repo|repository|commit)\b",
     re.I,
 )
-for rel in sorted(shipped_ai & ALLOWED_AI):
-    src = root / rel
+# A placeholder that only some later step fills (the old `OPSFLOWS` clone URL,
+# which nothing filled) is a broken instruction in the product's voice.
+PLACEHOLDER = re.compile(r"\bOPSFLOWS\b|TBD_08DOCS")
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+def ships(target):
+    return target in placed or any(p.startswith(target.rstrip("/") + "/") for p in placed)
+
+for rel in sorted(PRODUCT_DOCS & set(placed)):
+    src = root / source_of.get(rel, rel)
     if not src.exists():
-        bad(f"{rel} is declared a product file and is not in this repository")
+        bad(f"{rel} is declared a product file and its source {src.relative_to(root)} "
+            f"is not in this repository")
         continue
-    for n, line in enumerate(src.read_text(errors="replace").splitlines(), 1):
+    text = src.read_text(errors="replace")
+    for n, line in enumerate(text.splitlines(), 1):
         if PROVENANCE.search(line):
             bad(f"{rel}:{n} tells the product where the BASELINE came from, "
                 f"which rebrand cannot rewrite: {line.strip()[:70]}")
+        if PLACEHOLDER.search(line):
+            bad(f"{rel}:{n} ships a placeholder nothing fills: {line.strip()[:70]}")
+    # Every relative link lands on a file the product has. The baseline's own
+    # README linked BOOTSTRAP.md, docs/phases/ and specs/ — none of which ship.
+    for target in LINK.findall(text):
+        if re.match(r"^[a-z][a-z0-9+.-]*:|^#", target):
+            continue
+        path = posixpath.normpath(posixpath.join(posixpath.dirname(rel), target.split("#")[0]))
+        if not ships(path):
+            bad(f"{rel} links {target}, which the product does not carry")
 
 if problems:
     print("FAIL: the product would carry the baseline:", file=sys.stderr)
@@ -123,7 +163,8 @@ if problems:
 print(f"   {len(placed)} files derived across every phase")
 print(f"   ai/context is exactly {len(ALLOWED_AI)} declared file(s)")
 print(f"   none of the {len(NEVER)} factory paths; "
-      f"no baseline provenance in the context pack")
+      f"{len(PRODUCT_DOCS)} product docs ship, with no baseline provenance, "
+      f"no unfilled placeholder and no link outside the product")
 PY
 
 echo "leak.test.sh: ok"

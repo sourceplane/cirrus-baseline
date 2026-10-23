@@ -94,8 +94,9 @@ modes are the same files.
 
 `--resume` places every phase not already derived as done, in dependency
 order, honouring each barrier. Expected wall-clock on a clean run: **about
-9 minutes** (an estimate until a run measures it; baseline-v21 measured 14m51s
-over five landings, and it was 50–65 before that):
+15 minutes** — `01-product` 13, `08-docs` 2, the figure the console card
+shows (a budget until a one-landing run measures it; baseline-v21 measured
+14m51s over five landings, and it was 50–65 before that):
 
 - **One landing builds the product.** `01-product` places the whole tree and
   lands it as one PR; the convergence that follows deploys everything in

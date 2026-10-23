@@ -121,23 +121,25 @@ orun integrations list --org <ws> --json && orun cloud check --org <ws>
 | headless/CI credentials | `ORUN_TOKEN` (workspace-scoped) + `GITHUB_TOKEN` |
 
 The ops phases (docs refresh and the original deployment sequence) all live
-in ONE versioned artifact: `repo-blueprint.yaml` in the
-baseline this product was born from. Clone it at a tag and select the phase
-— from anywhere, with the two tokens above exported:
+in ONE versioned artifact: `repo-blueprint.yaml` in the baseline this
+product was built from, at the tag the Orun Cloud registry publishes for it.
+`orun baseline new` fetches it at that tag and places one phase into a
+checkout of this repository — from anywhere, with the two tokens above
+exported:
 
 ```bash
-git clone --depth 1 https://github.com/OPSFLOWS baseline && cd baseline
-
-orun new --blueprint repo-blueprint.yaml --out <product-checkout> \
-  --run-hooks --phase 08-docs --values <values.yaml>     # docs refresh
+orun baseline list        # the baselines your workspace can build
+orun baseline new <baseline> --local --out <product-checkout> --run-hooks \
+  --phase 08-docs --values <product-checkout>/.rebrand/values.json   # docs refresh
 ```
 
-`<values.yaml>` carries this product's identity — at minimum `reponame`,
-`productname`, `githuborg` and `orunWorkspace`, which the blueprint validates
-before anything runs. `--run-hooks` is what makes a phase
-land and verify rather than just place files; `--status` previews without
-writing. Every phase is idempotent — re-running a completed one is a no-op
-that re-verifies.
+`<baseline>` is the registry id of the baseline this product was built
+from, one of those `orun baseline list` names. `.rebrand/values.json` is
+this product's identity as its build recorded it — `reponame`,
+`productname`, `githuborg`, `orunWorkspace` and the rest — which the
+blueprint validates before anything runs. `--run-hooks` is what makes a phase land and verify rather than just
+place files. Every phase is idempotent — re-running a completed one is a
+no-op that re-verifies.
 
 ## Setting the domain later
 

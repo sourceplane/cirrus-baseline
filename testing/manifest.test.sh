@@ -271,6 +271,20 @@ for path in manifests:
     if not boot.get("expectedMinutes"):
         B("bootstrap.expectedMinutes is missing — the console renders it")
 
+    # ── …and it is the phases' own budget, not a third opinion ────────────
+    #
+    # The console shows this figure before Build and each phase's
+    # `expectedMinutes` while it runs. They disagreed (12 here against 9 + 1
+    # in the phases, and ~25-30 in the description) with nothing comparing
+    # them, so an operator was given three budgets for one build. The card's
+    # is the phases' sum, which is the thing that does the work.
+    phase_minutes = [p_.get("expectedMinutes") for p_ in bp_phases]
+    if boot.get("expectedMinutes") and phase_minutes and all(isinstance(m, int) for m in phase_minutes):
+        if boot["expectedMinutes"] != sum(phase_minutes):
+            B(f"bootstrap.expectedMinutes is {boot['expectedMinutes']} and repo-blueprint.yaml's "
+              f"phases budget {' + '.join(map(str, phase_minutes))} = {sum(phase_minutes)} — "
+              f"the console would show one figure before Build and another during it")
+
     # ── …and what BE-K1e added in their place ─────────────────────────────
     #
     # With no umbrella and no brief, `blueprint` is the ONLY entry point: it
