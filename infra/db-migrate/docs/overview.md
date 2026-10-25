@@ -6,7 +6,7 @@ Applies this repo's ordered migrations to the environment's Cloudflare D1 databa
 
 ## Depends on
 
-- **db** — 
+- **db** — D1 executor, repositories and the ordered migrations the Workers and db-migrate use
 - **cloudflare-d1** — Provisions the Cloudflare D1 platform database for stage and prod
 
 ## Depended on by

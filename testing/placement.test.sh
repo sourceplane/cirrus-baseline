@@ -25,9 +25,11 @@
 #      domain — and that the domain it was born without is the placeholder;
 #   6. THE PHASED SEQUENCE THROUGH A REBRAND: place 01, brand, then place the
 #      phases that follow. This is the step no test in this repository has ever
-#      taken, and it is where BE-O12's two defects lived.
+#      taken, and it is where BE-O12's two defects lived;
+#   7. the lockfile it ships installs frozen in the branded tree — there is
+#      no lockfile hook, and every lane installs it with --frozen-lockfile.
 #
-# Needs: orun (the pinned version) + node + python3 + git. No network, no
+# Needs: orun (the pinned version) + node + pnpm + python3 + git. No network, no
 # credential. Nothing here contacts a provider: placement writes files, and
 # since BE-O12 a run with hooks off does not probe.
 set -euo pipefail
@@ -36,6 +38,7 @@ root="$(cd "$here/.." && pwd)"
 
 command -v orun >/dev/null || { echo "placement.test.sh needs orun on PATH" >&2; exit 1; }
 command -v node >/dev/null || { echo "placement.test.sh needs node for rebrand" >&2; exit 1; }
+command -v pnpm >/dev/null || { echo "placement.test.sh needs pnpm for the frozen-lockfile check" >&2; exit 1; }
 
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
@@ -75,10 +78,11 @@ fi
 # ── the gates that ride inside the placement ───────────────────────────────
 # `orun new` prints this line only after running validate + plan --dry-run in
 # the produced tree. Its absence means the tier lost a check without failing.
-# Two spellings: the pinned v2.58.11 prints `repo gate: validate + plan
-# --dry-run passed`; later releases print a summary whose `✓ Verified  intent
-# valid · N components × M envs → J jobs` row is written only when that same
-# gate passed (cmd/orun/new_summary.go), so a pin bump does not turn this red.
+# Two spellings: v2.58.11 (the pinned floor until v2.88.0) prints `repo
+# gate: validate + plan --dry-run passed`; later releases, the v2.88.0 floor
+# among them, print a summary whose `✓ Verified  intent valid · N components ×
+# M envs → J jobs` row is written only when that same gate passed
+# (cmd/orun/new_summary.go), so a pin bump does not turn this red.
 grep -qE "repo gate: validate \+ plan --dry-run passed|Verified +intent valid" "$scratch/place.log" \
   || fail "the placement did not report the repo-scale gate — \`orun validate\`
      and \`orun plan --dry-run\` are Tier 1 checks that ride inside \`orun new\`,
@@ -111,6 +115,24 @@ if ! (cd "$tree" && node "$root/tooling/rebrand/rebrand.mjs" \
   exit 1
 fi
 echo "   branded; no baseline-identity residue"
+
+# ── the lockfile it ships installs frozen ──────────────────────────────────
+# There is no lockfile hook any more: root-pnpm-lock places the baseline's
+# complete lockfile as it is, and every lane of the product's CI installs it
+# with --frozen-lockfile. So the BRANDED tree must still be exactly what that
+# lockfile locks — a rebrand that renamed a workspace package or a
+# dependency would fail every lane of the first convergence, and this
+# repository has no later tier that installs the product. Checked without
+# installing or fetching anything (--lockfile-only --offline); a refusal
+# names the importer whose specifiers no longer match.
+echo "── the shipped lockfile, frozen, against the branded tree"
+if ! (cd "$tree" && pnpm install --frozen-lockfile --lockfile-only --ignore-scripts --offline) \
+     > "$scratch/lockfile.log" 2>&1; then
+  echo "FAIL: the branded product does not install frozen from the lockfile it ships" >&2
+  tail -20 "$scratch/lockfile.log" >&2
+  exit 1
+fi
+echo "   pnpm-lock.yaml installs frozen — nothing to re-resolve"
 
 # ── the leak rules, over the files rather than the derivation ──────────────
 echo "── what the product actually carries"

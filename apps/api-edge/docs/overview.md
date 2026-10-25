@@ -18,7 +18,8 @@ Part of the cirrus-baseline runtime: a Cloudflare Worker deployed per environmen
 - **membership-worker** — Cloudflare Worker for the Membership org runtime
 - **metering-worker** — Cloudflare Worker for the Metering API surface (usage recording, quota checks)
 - **notifications-worker** — Cloudflare Worker for the Notifications bounded context
+- **policy-worker** — Cloudflare Worker for policy authorization decisions
 
 ## Depended on by
 
-- **web-console-next** — Next.js 15 + opennextjs/cloudflare delivery of the cirrus-baseline web console (per-environment, Workers + Static Assets)
+- (none)

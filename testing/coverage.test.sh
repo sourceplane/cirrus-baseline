@@ -101,6 +101,52 @@ for comp in BASELINE_ONLY:
     if not (root / comp).exists():
         bad(f"{comp} is declared baseline-only and does not exist — drop the entry")
 
+# ── WHAT THE CATALOG SEES OF EACH COMPONENT ───────────────────────────────
+#
+# Every component ships its generated pages (overview, architecture, runbook —
+# tooling/catalog/gen-component-docs.mjs) and must ATTACH them in
+# `spec.docs`: a `docs/` folder no manifest declares is never attached, so a
+# product's Docs library shows nothing for the component and the catalog
+# fails it on docs and on runbook (found on turso-starter, whose components
+# shipped the same generated pages undeclared, as these did). A component also
+# needs a description: it is the catalog's one-line answer to "what is this",
+# and the packages and test suites had none.
+#
+# And a domain may not share a component's name. The catalog keys entities by
+# name, so a domain called `web` took the `web` component's place on
+# turso-starter, and the product's one deployable was missing from its own
+# catalog. A domain is read where a manifest can declare one: `spec.domain`
+# and `labels.domain`.
+WANT_DOCS = {"overview": "docs/overview.md", "architecture": "docs/architecture.md", "runbook": "docs/runbook.md"}
+names, domains = {}, {}
+for comp in components:
+    if comp in BASELINE_ONLY:
+        continue
+    doc = yaml.safe_load((root / comp / "component.yaml").read_text()) or {}
+    meta, spec = doc.get("metadata") or {}, doc.get("spec") or {}
+    names[meta.get("name")] = comp
+    for dom in (spec.get("domain"), (meta.get("labels") or {}).get("domain"),
+                (spec.get("labels") or {}).get("domain")):
+        if dom:
+            domains.setdefault(dom, comp)
+    if not (meta.get("description") or "").strip():
+        bad(f"{comp}/component.yaml has no metadata.description — the catalog shows the component with nothing to say")
+    docs = spec.get("docs") or {}
+    got = {"overview": docs.get("overview")}
+    for page in docs.get("pages") or []:
+        got[page.get("role")] = page.get("path")
+    for role, path in WANT_DOCS.items():
+        if got.get(role) != path:
+            bad(f"{comp}/component.yaml does not attach {path} as its {role} "
+                f"(spec.docs) — the page ships and the catalog never sees it")
+        elif not (root / comp / path).is_file():
+            bad(f"{comp}/component.yaml attaches {path}, which does not exist — "
+                f"generate it: node tooling/catalog/gen-component-docs.mjs")
+for domain, comp in sorted(domains.items()):
+    if domain in names:
+        bad(f"{comp} declares domain `{domain}`, which is also the name of the "
+            f"component in {names[domain]} — the catalog keeps one of the two")
+
 # ── WHAT `ignore` ACTUALLY EXCLUDES (BE6) ──────────────────────────────────
 #
 # orun matches an ignore entry two ways, and WHICH ONE depends on the entry:
@@ -149,6 +195,8 @@ if problems:
 shipped = len(components) - len(BASELINE_ONLY)
 print(f"   {shipped} of {len(components)} components placed, "
       f"{len(BASELINE_ONLY)} baseline-only by declaration")
+print(f"   each attaches its three pages and says what it is; "
+      f"{len(domains)} domain(s), none named like a component")
 PY
 
 echo "coverage.test.sh: ok"

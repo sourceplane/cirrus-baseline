@@ -99,13 +99,16 @@ jobs:
         with:
           # The bootstrap floor (BOOTSTRAP.md), not the product lane pin: the
           # blueprint's `orun.run/watch@v1` `sha:` exists from v2.58.5, and an
-          # older CLI refuses the whole document at parse; v2.58.6 is where a
-          # landing's check wait covers the whole PR run; v2.58.7 knows
-          # orun.doctor/check@v1's `githubOwner`; v2.58.8 reads
-          # orun.secrets/exists@v1's `environments`; v2.58.10 defers a probe
+          # older CLI refuses the whole document at parse; v2.58.7 knows
+          # orun.doctor/check@v1's `githubOwner`; v2.58.10 defers a probe
           # about a project the bootstrap has not created yet; v2.58.11 fills
-          # an input declared `from: workspace`.
-          version: v2.58.11
+          # an input declared `from: workspace`; v2.87.0 mints the deploy
+          # credentials in one `secrets` reconcile (an older CLI refuses
+          # `has no parameter "secrets"`); and v2.88.0 runs the task set-up in
+          # the background (`background: true`) and checks a landing in the
+          # box before it merges (`checks: local`). The placement tier below
+          # runs this same CLI.
+          version: v2.88.0
       - name: repo-blueprint.yaml, read by the pinned CLI
         run: |
           set -euo pipefail
@@ -129,9 +132,15 @@ jobs:
       # the step nothing here had ever taken, and where orun BE-O12's two
       # defects lived. It needs node for rebrand alongside orun, and about ten
       # seconds. Still offline: placement writes files, and since BE-O12 a run
-      # with hooks off does not probe.
+      # with hooks off does not probe. And pnpm, at the product's own pin
+      # (package.json `packageManager`): with no lockfile hook, the branded
+      # tree is checked against the lockfile it ships, frozen, as every lane
+      # installs it.
       - uses: actions/setup-node@v6
         with:
           node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
       - name: Tier 1 — the tree is placed, branded, and made to answer
         run: bash testing/placement.test.sh

@@ -1,6 +1,6 @@
 # api-edge-tests
 
-
+api-edge's tests (the routing facades, actor resolution, CORS, rate limits, idempotency, API keys), run on dev
 
 A workspace package built by the turbo pipeline. It deploys nothing on its own — its lane type-checks, lints, tests, and builds it for the components that depend on it.
 

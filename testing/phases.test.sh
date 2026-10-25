@@ -17,6 +17,15 @@
 # and a module that drifts one phase earlier fails at deploy time, live, with
 # nothing in this repo having looked wrong.
 #
+# THE HOOKS, TOO (ported from sourceplane/turso-starter's copy of this file).
+# Each phase's hooks run in the one-landing order; the shape that keeps a
+# bootstrap fast holds (orun >= v2.88.0): the run-level task set-up runs in
+# the background, each phase finds its task just before its landing, each
+# landing checks its commit in the box (`checks: local`), and the convergence
+# watch reads every few seconds. And the wiring the infrastructure publishes
+# is proved by the components that resolve it in the convergence — which is
+# why 01-product no longer awaits it separately.
+#
 # bash + python3 + PyYAML. No network, no fakes, no credential.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -184,6 +193,175 @@ for p in phases:
             bad(f"phase {p['name']} hook {h.get('id')} names contract {rel}, "
                 f"which does not exist")
 
+run_hooks = list((bp.get("hooks") or {}).get("preInstantiate") or [])
+
+# ── the hooks run in the one-landing order ────────────────────────────────
+# Each phase's pre, post and await hooks, in order. The brokered keys are one
+# `secrets` reconcile (testing/manifest.test.sh holds them to the card). No
+# phase has a `pre` hook: the task is found in `post`, just before the
+# landing, so that everything before it runs beside the background task
+# set-up. 08-docs awaits nothing: its render probes as it writes, and its
+# landing redeploys nothing.
+PRE = {"01-product": [], "08-docs": []}
+POST = {
+    "01-product": ["retouch", "git-init", "git-stage", "rebrand", "orun-workspace",
+                   "promotion", "dev-lanes", "git-restage", "rebrand-verify",
+                   "console-artifact", "restage-console-artifact",
+                   "repo", "link", "secrets", "task", "land"],
+    "08-docs": ["promotion", "dev-lanes", "render", "task", "land"],
+}
+AWAIT = {"01-product": ["converge", "verify"], "08-docs": []}
+for name, want in PRE.items():
+    got = [h.get("id") for h in ((by_name.get(name, {}).get("hooks") or {}).get("pre") or [])]
+    if got != want:
+        bad(f"phase {name}'s pre hooks are {got}; want {want} — a task found in `pre` waits "
+            f"for the background task set-up before the phase has done anything")
+for name, want in POST.items():
+    got = [h.get("id") for h in ((by_name.get(name, {}).get("hooks") or {}).get("post") or [])]
+    if got != want:
+        bad(f"phase {name}'s post hooks are {got}; the one-landing order is {want}")
+for name, want in AWAIT.items():
+    got = [h.get("id") for h in ((by_name.get(name, {}).get("hooks") or {}).get("await") or [])]
+    if got != want:
+        bad(f"phase {name}'s await hooks are {got}; want {want}")
+for p in phases:
+    for h in hooks_of(p):
+        if (h.get("uses") or "").startswith("orun.pr/land@") and \
+                (h.get("with") or {}).get("task") != "{{ .phase.hooks.task.outputs.key }}":
+            bad(f"phase {p['name']} lands without binding the PR to its task key")
+
+# ── THE FAST SHAPE (orun >= v2.88.0) ──────────────────────────────────────
+# The run-level list is the task set-up, all of it in the background: the
+# first phase's provider check, placement, rebrand, console pin, repository,
+# link and secrets run while it opens the epic, the milestones and the tasks.
+for h in run_hooks:
+    if not h.get("background"):
+        bad(f"hooks.preInstantiate {h.get('id')} is not `background: true` — the first phase "
+            f"waits for it before doing anything, though nothing before its landing reads it")
+# No phase keeps a `pre` hook on the task plane: it would wait for the whole
+# background before the phase has placed a file.
+TASK_PLANE = ("orun.task/", "orun.pr/land@")
+for p in phases:
+    for h in ((p.get("hooks") or {}).get("pre") or []):
+        if (h.get("uses") or "").startswith(TASK_PLANE):
+            bad(f"phase {p['name']} pre hook {h.get('id')} uses {h['uses']} — it waits for "
+                f"the background task set-up; find the task in `post`, just before the landing")
+# Every landing checks its commit here and merges, instead of waiting for a
+# runner to plan the tree this box just wrote.
+for p in phases:
+    for h in hooks_of(p):
+        if (h.get("uses") or "").startswith("orun.pr/land@") and (h.get("with") or {}).get("checks") != "local":
+            bad(f"phase {p['name']} lands with checks {(h.get('with') or {}).get('checks', 'ci')!r}, "
+                f"not 'local' — it waits for a runner to plan a tree that is here")
+# The convergence watch reads every few seconds, not the action's default 40.
+for p in phases:
+    for h in ((p.get("hooks") or {}).get("await") or []):
+        if (h.get("uses") or "").startswith("orun.run/watch@"):
+            every = (h.get("with") or {}).get("pollSeconds")
+            if not isinstance(every, int) or every > 10:
+                bad(f"phase {p['name']} watches its convergence every {every or 40} s; at most 10 — "
+                    f"the build goes on that much after the run is green")
+
+# ── THE WIRING IS PROVED BY ITS READERS ───────────────────────────────────
+#
+# Each infra apply lease-publishes a wiring document (`secretOutputs:
+# "WIRING_X=wiring"`) to the project's stage and prod rungs. 01-product used
+# to ask the platform afterwards whether they were there
+# (`orun.secrets/exists@v1`). It no longer does, because components in the
+# same convergence resolve them as their jobs start, from the `secretEnv`
+# refs in their component.yaml — the place every later run reads them — and
+# that resolution is fail-closed: a missing document fails the lane, so a
+# green convergence has already said it is there.
+#
+# That holds only while every published document has such a reader on stage
+# AND on prod: a `secretEnv` ref (an `optionalSecretEnv` one skips a missing
+# key), in a component that runs in both environments on a merge to main and
+# waits there for its publisher (`mode: enforced` on github-push-main — or it
+# would start before the apply). A pull request deploys nothing, so on one
+# nothing waits (advisory). A document nothing reads that way must be awaited
+# again (orun.secrets/exists@v1, stage and prod), and is then exempt here.
+intent = yaml.safe_load((root / "intent.yaml").read_text()) or {}
+env_mode = {n: (e or {}).get("dependencyMode") for n, e in (intent.get("environments") or {}).items()}
+comps = {}
+for f in root.rglob("component.yaml"):
+    if "node_modules" in f.parts or ".git" in f.parts:
+        continue
+    d = yaml.safe_load(f.read_text()) or {}
+    comps[(d.get("metadata") or {}).get("name")] = (f.relative_to(root).as_posix(), d.get("spec") or {})
+
+def subscribed(spec):
+    return {s.get("name"): s for s in ((spec.get("subscribe") or {}).get("environments") or [])}
+
+def edge_mode(spec, env, target, trigger):
+    """A dependsOn edge's mode in one environment under one trigger, by orun's
+    precedence: the edge's modeRules, its mode, then the lane's — the
+    subscription's dependencyRules, its dependencyMode, the environment's
+    dependencyMode, enforced."""
+    edge = next((d for d in spec.get("dependsOn") or [] if d.get("component") == target), None)
+    if edge is None:
+        return None
+    for r in edge.get("modeRules") or []:
+        if (r.get("when") or {}).get("triggerRef") == trigger:
+            return r.get("mode")
+    if edge.get("mode"):
+        return edge["mode"]
+    sub = subscribed(spec).get(env) or {}
+    for r in sub.get("dependencyRules") or []:
+        if (r.get("when") or {}).get("triggerRef") == trigger:
+            return r.get("mode")
+    return sub.get("dependencyMode") or env_mode.get(env) or "enforced"
+
+REF = re.compile(r"^secret://[^/]+/[^/]+/([^/]+)/([A-Za-z0-9_]+)$")
+def resolves(spec, key):
+    """The environments whose `key` document this component's jobs resolve, fail-closed."""
+    envs = set()
+    for ref in (spec.get("secretEnv") or {}).values():
+        m = REF.match(str(ref).strip())
+        if m and m.group(2) == key:
+            envs |= set(subscribed(spec)) if m.group(1) == "{{ .environment }}" else {m.group(1)}
+    return envs
+
+publishes = {}
+for name, (rel, spec) in comps.items():
+    outs = str((spec.get("parameters") or {}).get("secretOutputs") or "")
+    for pair in filter(None, (x.strip() for x in outs.split(","))):
+        key = pair.split("=", 1)[0]
+        if key.startswith("WIRING_"):
+            publishes[key] = name
+if not publishes:
+    bad("no infra component lease-publishes a WIRING_* document — this check has gone blind")
+awaited = {k for p in phases for h in ((p.get("hooks") or {}).get("await") or [])
+           if (h.get("uses") or "").startswith("orun.secrets/exists@")
+           and set((h.get("with") or {}).get("environments") or []) >= {"stage", "prod"}
+           for k in ((h.get("with") or {}).get("keys") or [])}
+module_of = {(m.get("from") or "").rstrip("/"): m for m in bp.get("modules") or []}
+readers = {}
+for key, pub in sorted(publishes.items()):
+    seen = set()
+    for name, (rel, spec) in sorted(comps.items()):
+        envs = resolves(spec, key)
+        if not envs or name == pub:
+            continue
+        readers.setdefault(key, []).append(name)
+        for env in sorted({"stage", "prod"} & set(subscribed(spec))):
+            if edge_mode(spec, env, pub, "github-push-main") != "enforced":
+                bad(f"{rel} reads {key} and does not wait for {pub} on {env} on a merge to main — "
+                    f"declare dependsOn {pub} with mode: enforced")
+            if edge_mode(spec, env, pub, "github-pull-request") != "advisory":
+                bad(f"{rel} waits for {pub} on {env} on a pull request, which deploys nothing — "
+                    f"make the edge advisory on github-pull-request")
+        if {"stage", "prod"} <= set(subscribed(spec)):
+            seen |= envs
+        mod = module_of.get(rel.rsplit("/", 1)[0])
+        pub_mod = module_of.get(comps[pub][0].rsplit("/", 1)[0])
+        if mod and pub_mod and pub_mod["name"] not in (mod.get("dependsOn") or []):
+            bad(f"module {mod['name']} reads {key} and is not placed after {pub_mod['name']} (module dependsOn)")
+    missing = {"stage", "prod"} - seen
+    if missing and key not in awaited:
+        bad(f"{key} ({pub}) is resolved on {sorted(missing)} by nothing in the convergence — a "
+            f"green run no longer says it was published there; await it with "
+            f"orun.secrets/exists@v1 on stage and prod")
+
 # ── every phase has a documentation page, and every page a phase ──────────
 # This replaces BE1's "every flows/phases folder has a phase declared here".
 # The folders are gone (BE4), and the thing that can now drift out from under
@@ -288,6 +466,12 @@ def check_line(where, line, slot, hook_ids):
 for p in phases:
     n = p.get("narrate") or {}
     ids = {h.get("id") for h in hooks_of(p)}
+    awaits = bool((p.get("hooks") or {}).get("await"))
+    # A phase that awaits nothing never says its await line — except while
+    # `requires.probe` waits for a provider, which is a waiting event too.
+    if n.get("await") and not awaits and not (p.get("requires") or {}).get("probe"):
+        bad(f"phase {p['name']} declares narrate.await and waits on nothing — "
+            f"nobody would ever read it")
     for slot in ("start", "await", "done", "failed"):
         line = n.get(slot)
         # `await` IS OPTIONAL, and this baseline authors none (orun-cloud
@@ -341,6 +525,10 @@ narrated = sum(len(p.get("narrate") or {}) for p in phases)
 narrated += sum(1 for p in phases for h in hooks_of(p) if h.get("narrate"))
 print(f"   {len(phases)} phases, {placed} modules, "
       f"{len(HOOK_ONLY)} hook-only — in execution order")
+print(f"   hooks in the one-landing order; task set-up in the background, every landing checked here")
+for key in sorted(publishes):
+    print(f"   {key} ({publishes[key]}): resolved in the convergence by {len(readers.get(key, []))} "
+          f"reader(s), each waiting for it on main{' — and awaited' if key in awaited else ''}")
 print(f"   {narrated} authored narration lines, every reference resolving")
 PY
 

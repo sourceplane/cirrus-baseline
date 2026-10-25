@@ -111,6 +111,10 @@ credential is minted from.
 
 ## Steps
 
+The run's task set-up — the epic, both milestones, both tasks — runs in the
+background from the start (`background: true`), so every step up to `task`
+runs beside it; `task` is the first that waits for it.
+
 1. **place** — the engine writes every module into `--out`.
 2. **retouch** — one trailing `# orun: redeploy 01-product <stamp>` line in
    each component the task contract `affects`, so a RE-RUN has a diff to land
@@ -119,9 +123,9 @@ credential is minted from.
    intent `workspace:` rewrite → `promotion.mjs --defer` and
    `dev-lanes.mjs --defer` (prod deploys beside stage, and dev's verify lanes
    stay off main, until 08-docs puts both back) → `git add` →
-   `rebrand.mjs --verify` → `pnpm install --lockfile-only` (a no-op: the
-   baseline's complete lockfile is already placed) → the console artifact
-   pin.
+   `rebrand.mjs --verify` → the console artifact pin. (No lockfile step: the
+   baseline's complete lockfile is placed as it is, and every lane installs
+   it with `--frozen-lockfile`.)
 4. **repo** — `orun.repo/ensure@v1`: an existing `origin` is pushed to; a
    repo pre-created empty on GitHub is detected and wired; otherwise it is
    created under `githuborg`.
@@ -129,21 +133,29 @@ credential is minted from.
    best effort; `orun cloud check` is the gate). Every convergence lane
    authenticates over GitHub OIDC through that link.
 6. **the deploy credentials** — `CLOUDFLARE_API_TOKEN` (workers-deploy),
-   `CLOUDFLARE_D1_TOKEN` (d1-edit) and `CLOUDFLARE_ACCOUNT_ID`, each minted by
-   `orun.integrations/reconcile@v1` from its own scope template; keys that
-   exist are kept.
-7. **land** — `orun.pr/land@v1`, one PR bound to the phase's task. Its check
-   is `plan` alone on a bootstrap branch; the convergence after the merge is
-   the real gate.
-8. **await** — the convergence for the merged commit (`orun.run/watch@v1`,
-   up to three resumes), the wiring secrets on stage and prod, and a probe of
-   the four URLs.
+   `CLOUDFLARE_D1_TOKEN` (d1-edit) and `CLOUDFLARE_ACCOUNT_ID`, in ONE
+   `orun.integrations/reconcile@v1` hook (`secrets`), each key minted from
+   its own scope template, side by side; keys that exist are kept.
+7. **task** — `orun.task/ensure@v1` finds the phase's task and yields its
+   key, waiting, if it must, for the background set-up.
+8. **land** — `orun.pr/land@v1`, one PR bound to the phase's task, its
+   commit checked in the box first (`checks: local`: `orun validate`, then
+   `orun plan` as the PR and as the merge would plan it) and merged without
+   waiting for the PR's CI; the convergence after the merge is the real
+   gate.
+9. **await** — the convergence for the merged commit (`orun.run/watch@v1`,
+   read every 5 s, up to three resumes), then a probe of the four URLs. No
+   separate wiring check: every reader of `WIRING_CLOUDFLARE_D1` and
+   `WIRING_CLOUDFLARE_KV` resolves it in that convergence as its job starts,
+   from where every later run looks, and a missing document fails its lane.
 
 ## Verify / done means
 
-- `WIRING_CLOUDFLARE_D1` and `WIRING_CLOUDFLARE_KV` exist on stage and prod.
 - The convergence for the merge commit is green: migrations applied, every
-  worker deployed once with its bindings, the edge and the console up.
+  worker deployed once with its bindings, the edge and the console up — and
+  with them `WIRING_CLOUDFLARE_D1` and `WIRING_CLOUDFLARE_KV` resolved from
+  stage and prod by db-migrate, the D1-bound workers and api-edge, where
+  every later run reads them.
 - `api-edge` `/health` answers 200 and the console root answers, on stage
   and prod.
 
@@ -153,7 +165,8 @@ credential is minted from.
 |---|---|
 | a worker's deploy: 10143 (binding target not found) | `policy-worker`'s pre-deploy did not run first: the worker lacks the enforced `dependsOn: policy-worker` (`testing/fleet-stubs.test.sh` checks every binding holder), or the binding names a Worker outside `apps/` |
 | `fleet-stubs: checking <name>: HTTP 403` | the workers-deploy token cannot read scripts — re-run the phase after reconnecting Cloudflare; the tool refuses to create a placeholder it cannot prove is missing |
-| a lane fails resolving `WIRING_*` | the terraform lane for that environment failed — read its log; the workers wait on it, so they show as not run |
+| a lane fails resolving `WIRING_*` | the terraform lane for that environment failed, or published nothing (the component lost its `secretOutputs`) — read its log; the workers wait on it, so they show as not run |
+| `land`: `the landing's own check failed — orun plan for …` | the placed tree does not plan; the next line is orun's error. Nothing was pushed. Fix it and re-run the phase |
 | d1 apply: database name already exists with empty platform state | `adopt.tf` looks the database up by name at plan time and imports it — if you removed that file, restore it |
 | kv apply: title already exists (10014) | the same adoption, by namespace title |
 | d1 apply or db-migrate: `Authentication error (10000)` | the token in play is workers-deploy, which deliberately cannot touch D1 — both components bind `CLOUDFLARE_D1_TOKEN` |

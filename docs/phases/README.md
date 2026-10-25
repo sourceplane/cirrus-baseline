@@ -10,9 +10,13 @@ them all.
 
 Each phase follows the same contract:
 
-> **place its modules → land them as a PR (checked by `plan`, then merged —
-> the convergence is the gate) → watch the deployment convergence
+> **place its modules → check them in the box and land them as a PR (the
+> convergence is the gate) → watch the deployment convergence
 > (auto-resumed) → verify it is actually deployed.**
+
+The run's task set-up — the epic, a milestone per phase, a task per landing
+— runs in the background from the start; the first hook that needs it, the
+phase's `task`, waits for it.
 
 Run from the baseline checkout (the blueprint's source is `path: .`); the
 product repo is wherever `--out` points.
@@ -24,11 +28,11 @@ before anything else can build or deploy. Each phase's `requires.phases`
 states this in the document, and the engine refuses a phase whose
 predecessor is not placed, naming it.
 
-Every phase lands as a pull request that is checked, then merged: each landing waits for its PR's own CI to finish green — and on a bootstrap branch (`orun/BASE-…`) that CI is `plan` alone (the intent, every component and composition resolve; the changed set is computed). The lanes are skipped on those pull requests because the merge runs every one of them on main a minute later, for real, and that convergence is what each phase watches to green before the next starts. Any other pull request in the product runs its lanes as before.
+Every phase lands as a pull request that is checked, then merged — checked in the box before it is pushed (`checks: local`): `orun validate`, then `orun plan` as the pull request and as the merge would plan it (the intent, every component and composition resolve; the changed set is computed). Then it merges; nothing waits for the PR's CI, which on a bootstrap branch (`orun/BASE-…`) runs `plan` alone. The lanes are skipped on those pull requests because the merge runs every one of them on main a minute later, for real, and that convergence is what each phase watches to green before the next starts. Any other pull request in the product runs its lanes as before.
 
 | phase | lands | verified by |
 |---|---|---|
-| [`01-product`](01-product.md) | **GitHub repo created**, then the WHOLE product in one PR: intent, CI, tooling, identity, 13 packages, D1 + KV, db-migrate, the 12-worker fleet with its bindings, api-edge, the web console and the custom-domain component (parked until a zone is wired) — one convergence deploys it in dependency order | `WIRING_*` published, convergence green, `/health` and console live on stage+prod |
+| [`01-product`](01-product.md) | **GitHub repo created**, then the WHOLE product in one PR: intent, CI, tooling, identity, 13 packages, D1 + KV, db-migrate, the 12-worker fleet with its bindings, api-edge, the web console and the custom-domain component (parked until a zone is wired) — one convergence deploys it in dependency order | convergence green (its migrations and deploys resolved `WIRING_*` on stage and prod), `/health` and console live on stage+prod |
 | [`08-docs`](08-docs.md) | live-deployment docs (manifest + operating contract) | committed manifest matches probed reality |
 
 ## Inputs
@@ -94,9 +98,9 @@ modes are the same files.
 
 `--resume` places every phase not already derived as done, in dependency
 order, honouring each barrier. Expected wall-clock on a clean run: **about
-15 minutes** — `01-product` 13, `08-docs` 2, the figure the console card
-shows (a budget until a one-landing run measures it; baseline-v21 measured
-14m51s over five landings, and it was 50–65 before that):
+13 minutes** — `01-product` 12, `08-docs` 1, the figure the console card
+shows (an estimate until a one-landing run measures it; baseline-v21
+measured 14m51s over five landings, and it was 50–65 before that):
 
 - **One landing builds the product.** `01-product` places the whole tree and
   lands it as one PR; the convergence that follows deploys everything in
@@ -105,8 +109,14 @@ shows (a budget until a one-landing run measures it; baseline-v21 measured
   it later in an ordinary PR (see [01-product](01-product.md#the-custom-domain--parked)).
   The numbering keeps its gaps so the names stay the identities the task
   plane and `--phase` use.
-- **A landing's PR is checked by `plan` alone.** The lanes run
-  once, on main.
+- **A landing is checked in the box.** `orun validate` and `orun plan` run
+  on the commit before it is pushed (`checks: local`), and it merges without
+  waiting for a runner; the lanes run once, on main.
+- **The task set-up runs in the background** (`background: true`): the
+  provider check, the placement, the rebrand, the repository and the secrets
+  run beside it, and each phase finds its task just before its landing.
+- **The convergence watch reads every 5 s**, so the build goes on the moment
+  the run is green.
 - **Every worker deploys once, with its bindings.** The data plane comes
   first because every component reading its wiring declares an ENFORCED
   `dependsOn` on it, and the service-binding cycles are broken by
@@ -138,9 +148,13 @@ Why it can run unattended:
   and inside its convergence nothing that reads the wiring starts before the
   apply that publishes it. A consent nobody has clicked is a *wait*, not a
   failure.
-- **Verification is the phase's own last act.** `await` hooks re-probe the
-  live endpoints and re-list the published secrets, trusting no earlier
-  step's word.
+- **Verification is the phase's own last act.** `01-product`'s `await`
+  watches the convergence and then probes the live endpoints, trusting no
+  earlier step's word. The wiring the infrastructure publishes needs no
+  separate check: every migration and deploy that reads it resolves it as
+  its job starts, from where every later run looks, and a missing document
+  fails that lane. `08-docs` awaits nothing — its render probes as it
+  writes, and its landing redeploys nothing.
 
 ## Pacing, idempotence, resume
 
@@ -189,16 +203,15 @@ a closed registry inside the orun binary, not a script this repo ships:
 |---|---|
 | `orun.task/ensure@v1` | the phase's own task in the workspace's task plane: find-or-create by identity under `epicSlug`, contract attached from `tasks/<phase>.TaskContract.yaml`. Never blocks a landing |
 | `orun.repo/ensure@v1` | create the product repo under `githuborg` if it does not exist (pre-created is supported) |
-| `orun.pr/land@v1` | commit → branch → PR → wait for checks → merge → back on main, through the provenance pen so the landing binds to the phase's task |
-| `orun.run/watch@v1` | wait for the main convergence run; auto-resume through transient failures (`resumeBudget: 3`) |
+| `orun.pr/land@v1` | commit → check it in the box (`checks: local`: validate, plan as the PR and as the merge) → branch → PR → merge → back on main, through the provenance pen so the landing binds to the phase's task |
+| `orun.run/watch@v1` | wait for the main convergence run, read every 5 s; auto-resume through transient failures (`resumeBudget: 3`) |
 | `orun.doctor/check@v1` | the provider-consent wait — a precondition, not a preamble |
-| `orun.secrets/exists@v1` | assert the keys a later phase reads are published |
-| `orun.integrations/reconcile@v1` | bring the brokered provider secrets to their declared state: keys that exist are KEPT, keys that are missing are minted against the ACTIVE connection. It never holds a value — a brokered secret is a pointer at a connection and a scope template |
+| `orun.integrations/reconcile@v1` | bring the brokered provider secrets to their declared state, all three in one hook (`secrets: [{key, template}]`): keys that exist are KEPT, keys that are missing are minted against the ACTIVE connection, side by side. It never holds a value — a brokered secret is a pointer at a connection and a scope template |
 | `orun.http/probe@v1` | probe the live `/health` and console URLs |
 
 The hooks that still `run:` a command are the ones that are this
 baseline's own business rather than a verb any bootstrap needs: git init /
-stage / restage and `pnpm install --lockfile-only` in `01-product`,
+stage / restage in `01-product`,
 `tooling/rebrand/rebrand.mjs` (the identity rename, then `--verify`),
 `tooling/bootstrap/promotion.mjs` (defer and
 restore the prod promotion gate), `tooling/bootstrap/dev-lanes.mjs` (defer and
@@ -215,10 +228,13 @@ the blueprint's run-level `hooks.preInstantiate` list (orun ≥ v2.60) opens
 the `epicSlug` epic with its description, one milestone per phase in phase
 order with the phase's verify assertions as exit criteria, and one task per
 landing with a brief — so a reader can open the epic while `01-product` is
-still creating the repository. Every phase's `pre` hook is then an
-`orun.task/ensure@v1` on its own task: the same identity (title within the
-epic), so it finds rather than creates, and yields the key its landing binds
-the pull request to. A task title is an imperative sentence about the outcome
+still creating the repository. The list runs in the background
+(`background: true`, orun ≥ v2.88.0), so nothing waits for it until a hook
+that works on the plane. Every phase's `task` hook — in `post`, just before
+its landing, so that everything before it runs beside the set-up — is then
+an `orun.task/ensure@v1` on its own task: the same identity (title within
+the epic), so it finds rather than creates, and yields the key its landing
+binds the pull request to. A task title is an imperative sentence about the outcome
 ("Deploy the worker fleet"); the pull request that lands it carries a
 conventional-commit title of its own (`feat(workers): …`). The milestone keeps
 the phase's name, which is the identity the engine's events, the plane's

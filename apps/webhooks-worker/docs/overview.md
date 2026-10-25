@@ -8,6 +8,7 @@ Part of the cirrus-baseline runtime: a Cloudflare Worker deployed per environmen
 
 - **membership-worker** — Cloudflare Worker for the Membership org runtime
 - **policy-worker** — Cloudflare Worker for policy authorization decisions
+- **cloudflare-d1** — Provisions the Cloudflare D1 platform database for stage and prod
 
 ## Depended on by
 

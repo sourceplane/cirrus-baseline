@@ -27,7 +27,7 @@ metadata:
     Multi-tenant SaaS on Cloudflare alone: 12 bounded-context Workers behind
     one edge API, a Next.js console, D1 + KV data plane, migrations, and CI
     that converges on merge. One provider, one consent, one token. Live on
-    stage and prod in about fifteen minutes.
+    stage and prod in about thirteen minutes.
   tags: [saas, cloudflare, d1, nextjs]
 spec:
   source:
@@ -128,12 +128,14 @@ spec:
       # naming the fix, before anything is created.
       from: connection.cloudflare.workersSubdomain
 
-  # ── PREVIEW ONLY. `repo-blueprint.yaml`'s `integrations/reconcile` hooks
-  # mint these, brokered, during 01-product. ──────────────────────────────
-  # Transcribed from those hooks' own `keys:` and `template:` values, so
-  # `testing/manifest.test.sh` compares this list to the document that mints
-  # them rather than to a copy of itself — it used to compare against a shell
-  # script's `create` calls, and BE4 deleted the script, not the check.
+  # ── PREVIEW ONLY. `repo-blueprint.yaml`'s `secrets` hook
+  # (`orun.integrations/reconcile@v1`) mints these, brokered, during
+  # 01-product, in this order. ─────────────────────────────────────────────
+  # Transcribed from that hook's own `secrets:` list (each key with its
+  # `template`), so `testing/manifest.test.sh` compares this list to the
+  # document that mints them rather than to a copy of itself — it used to
+  # compare against a shell script's `create` calls, and BE4 deleted the
+  # script, not the check.
   # The console renders them read-only: they are minted from the
   # workspace's connections at build time, so no credential is ever typed,
   # shown or stored in the console. Keys that already exist are kept.
@@ -180,10 +182,14 @@ spec:
     # the registry row names THIS file, the console card; it is not the build.
     blueprint: repo-blueprint.yaml
     # Was 60, then 30; baseline-v21 measured 14m51s over five landings.
-    # Fifteen is the one-landing build's budget until a run measures it: the
-    # sum of the phases' own `expectedMinutes` (01-product 13, 08-docs 2),
-    # which testing/manifest.test.sh holds equal to this figure.
-    expectedMinutes: 15
+    # Thirteen is the one-landing build's budget until a run measures it: the
+    # sum of the phases' own `expectedMinutes` (01-product 12, 08-docs 1),
+    # which testing/manifest.test.sh holds equal to this figure. An estimate:
+    # the 15 it was, less what the orun v2.88.0 shape (the task set-up in the
+    # background, landings checked in the box, a 5 s convergence watch, no
+    # wiring await, no final probe) took out of turso-starter's measured
+    # build — not yet timed on cirrus.
+    expectedMinutes: 13
     tokenChannel: ORUN_TOKEN_FILE   # how a runner hands over its refreshed token
   verify:
     urls:

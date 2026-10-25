@@ -1,6 +1,6 @@
 # notifications-client-tests
 
-
+notifications-client's tests (the best-effort enqueue), run on dev
 
 A workspace package built by the turbo pipeline. It deploys nothing on its own — its lane type-checks, lints, tests, and builds it for the components that depend on it.
 
