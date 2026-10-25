@@ -1,6 +1,6 @@
 # membership-worker-tests
 
-
+membership-worker's tests (organizations, invitations, authorization context, service principals), run on dev
 
 A workspace package built by the turbo pipeline. It deploys nothing on its own — its lane type-checks, lints, tests, and builds it for the components that depend on it.
 

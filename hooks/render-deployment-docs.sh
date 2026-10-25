@@ -9,15 +9,24 @@
 #
 # What it writes (in <out>):
 #   ai/context/deployment.md   — REGENERATED: the deployment manifest (URLs
-#                                with live probe results, identity, secrets
-#                                inventory BY NAME, integrations, provenance)
+#                                with live probe results, identity, and the
+#                                secrets the product uses BY NAME, with where
+#                                each one lives)
 #   ai/context/operations.md   — healed from the baseline template if absent
 #                                (static operator/agent guide; never rewritten)
 #   README.md                  — the section between <!-- 08-docs:begin/end -->
 #                                markers is replaced (markers appended if the
 #                                README predates them)
 #
-# No secret VALUE is ever read or written here — inventories are names only.
+# No secret VALUE is ever read or written here — secrets are named, not read.
+#
+# IT ASKS THE PLATFORM NOTHING. The record used to carry the workspace's slug,
+# its secrets listed per rung and its integrations — five CLI calls, one after
+# another, from the build box — and all of it is what the console shows live
+# and this file could only show as it was the day it was written. The record
+# keeps what the repository is the right place for: the identity the code
+# names, what answered at the URLs, the secrets the product's manifests name
+# and where each lives, and where to look for the rest.
 set -euo pipefail
 
 out="${1:?usage: render-deployment-docs.sh <out> <workspace> <baseline-dir>}"
@@ -31,11 +40,6 @@ vals=".rebrand/values.json"
 repo="$(python3 -c "import json;print(json.load(open('$vals'))['reponame'])")"
 sub="$(python3 -c "import json;print(json.load(open('$vals'))['subdomain'])")"
 domain="$(python3 -c "import json;print(json.load(open('$vals')).get('productdomain',''))")"
-
-# Workspace slug via the direct backend read (works for user sessions AND
-# workspace-scoped ORUN_TOKENs); tolerate failure — slug then shows as "?".
-slug="$( { orun workspace "$ws" 2>/dev/null || true; } | sed -n 's/^ *slug: *//p' | head -1)"
-[ -n "$slug" ] || slug="?"
 
 # CI lane pin (what version the deploy lanes run).
 lanepin="$(sed -n 's/^ *version: *\(v[0-9.]*\) *$/\1/p' .github/workflows/ci.yml 2>/dev/null | head -1)"
@@ -66,20 +70,32 @@ if [ -n "$domain" ]; then
 | console (custom domain) | https://app.${domain} | $( [ "$p_dc" = 000 ] && echo 'pending (zone not wired yet, or DNS propagating)' || badge "$p_dc" ) |"
 fi
 
-# Inventories — NAMES/status only, never values. Tolerant: a token that
-# cannot list simply yields an "unavailable" note instead of failing docs.
-secrets_proj="$( { orun secrets list --org "$ws" --project 2>/dev/null || true; } | awk 'NR>1 && NF {print "  - "$1}' )"
-secrets_stage="$( { orun secrets list --org "$ws" --env stage 2>/dev/null || true; } | awk 'NR>1 && NF {print "  - "$1}' )"
-secrets_prod="$( { orun secrets list --org "$ws" --env prod 2>/dev/null || true; } | awk 'NR>1 && NF {print "  - "$1}' )"
-[ -n "$secrets_proj" ]  || secrets_proj="  - (listing unavailable to this credential)"
-[ -n "$secrets_stage" ] || secrets_stage="  - (listing unavailable to this credential)"
-[ -n "$secrets_prod" ]  || secrets_prod="  - (listing unavailable to this credential)"
-integrations="$( { orun integrations list --org "$ws" --json 2>/dev/null || true; } | python3 -c "
-import json,sys
-try: rows=json.load(sys.stdin)
-except Exception: rows=[]
-out=[f\"  - {r.get('provider','?')}: {r.get('status','?')}\" for r in rows]
-print('\n'.join(out) if out else '  - (listing unavailable to this credential)')" )"
+# The Workers' RUNTIME secrets, by name, from the product's own manifests
+# (each Worker's `optionalSecretEnv`): wire-now-seed-later, so a Worker
+# deploys without them and pushes each one once an owner has seeded it. Read
+# from the tree rather than listed here, because adding one is an ordinary
+# change in the product, and this file is re-rendered long after it.
+runtime_rows="$(python3 -c '
+import pathlib, re, sys
+repo = sys.argv[1]
+keys = {}
+for f in sorted(pathlib.Path("apps").glob("*/component.yaml")):
+    block = False
+    for line in f.read_text().splitlines():
+        if re.match(r"^  optionalSecretEnv:\s*$", line):
+            block = True
+            continue
+        if not block or not line.strip() or line.lstrip().startswith("#"):
+            continue
+        m = re.match(r"^    ([A-Z0-9_]+):", line)
+        if not m:
+            block = False
+            continue
+        keys.setdefault(m.group(1), set()).add(f.parent.name)
+for k in sorted(keys):
+    who = ", ".join(sorted(keys[k]))
+    print(f"| `{k}` | `{repo}` per environment, once an owner seeds it | a runtime secret of {who}, optional until then |")
+' "$repo")"
 
 now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -106,15 +122,15 @@ cat > ai/context/deployment.md <<EOF
 
 > GENERATED by the docs flow on ${now}; re-run it to refresh (idempotent;
 > command in [operations.md](operations.md)). Hand-edits here are
-> overwritten. No secret values appear in this file — inventories are
-> names only.
+> overwritten. No secret values appear in this file — secrets are named
+> only.
 
 ## Identity
 
 | | |
 |---|---|
 | product / project slug | \`${repo}\` |
-| Orun workspace | \`${ws}\` (slug \`${slug}\`) |
+| Orun workspace | \`${ws}\` |
 | declared in | \`intent.yaml\` → \`execution.state.workspace\` / \`.project\` |
 | CI lane CLI pin | orun \`${lanepin}\` (\`.github/workflows/ci.yml\`) |
 
@@ -138,25 +154,21 @@ deployed URLs.
   migrations applied) and serve the URLs above.
 - \`dev\` is verify-only: plan/verify lanes run, nothing is deployed.
 
-## Secrets inventory (names only)
+## Secrets (names only)
 
-Project rung:
-${secrets_proj}
+| secret | where | what it is |
+|---|---|---|
+| \`CLOUDFLARE_API_TOKEN\` | the workspace | BROKERED from its Cloudflare connection (\`workers-deploy\`): deploys the Workers and applies the KV namespace |
+| \`CLOUDFLARE_D1_TOKEN\` | the workspace | BROKERED (\`d1-edit\`): applies the D1 database and runs its migrations — the deploy token cannot touch D1 |
+| \`CLOUDFLARE_ACCOUNT_ID\` | the workspace | the connection's account id — a fact, not a credential |
+| \`WIRING_CLOUDFLARE_D1\` | \`${repo}\` on stage and on prod | written by the D1 root's apply: the database's id and name, read by the migrations and by every Worker that binds it — not a credential |
+| \`WIRING_CLOUDFLARE_KV\` | \`${repo}\` on stage and on prod | written by the KV root's apply: the edge's idempotency namespace, read by api-edge — not a credential |
+${runtime_rows}
 
-Environment \`stage\`:
-${secrets_stage}
-
-Environment \`prod\`:
-${secrets_prod}
-
-Provider secrets are BROKERED (minted per-run from the workspace's
-integration connections; no long-lived values at rest). \`WIRING_*\` env-rung
-entries are job-output secrets published by the infrastructure terraform —
-deploy lanes resolve them for worker bindings.
-
-## Workspace integrations
-
-${integrations}
+Brokered secrets are minted per run, so no long-lived value is at rest. What
+the workspace holds right now (every secret by name, and its integrations
+and their health) is on the console's Secrets and Integrations pages for
+\`${ws}\`.
 
 ## How this deployment changes
 
@@ -173,8 +185,8 @@ import re, sys
 repo = sys.argv[1]
 begin, end = "<!-- 08-docs:begin -->", "<!-- 08-docs:end -->"
 body = f"""{begin}
-This product is **live**. Verified URLs, identity, and the secrets
-inventory are recorded in
+This product is **live**. Verified URLs, identity, and the secrets it
+uses are recorded in
 [ai/context/deployment.md](ai/context/deployment.md) (regenerated by the
 docs flow — command in the operating contract); how it deploys and how to
 operate it: [ai/context/operations.md](ai/context/operations.md).

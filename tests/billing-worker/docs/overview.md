@@ -1,6 +1,6 @@
 # billing-worker-tests
 
-
+billing-worker's tests (plans, billing scope, the Polar provider, webhook intake), run on dev
 
 A workspace package built by the turbo pipeline. It deploys nothing on its own — its lane type-checks, lints, tests, and builds it for the components that depend on it.
 

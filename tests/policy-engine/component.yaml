@@ -2,10 +2,20 @@ apiVersion: sourceplane.io/v1
 kind: Component
 metadata:
   name: policy-engine-tests
+  description: policy-engine's tests (role permissions and API-key policy), run on dev
 spec:
   type: turbo-package
   lifecycle: production
   owner: platform
+  # Its pages, attached to it in the workspace's catalog: what the Docs
+  # library shows for it, and what the catalog's docs and runbook checks read.
+  # Generated from what this manifest declares
+  # (tooling/catalog/gen-component-docs.mjs).
+  docs:
+    overview: docs/overview.md
+    pages:
+      - { path: docs/architecture.md, role: architecture, title: Architecture }
+      - { path: docs/runbook.md, role: runbook, title: Runbook }
   domain: starter-tests
   subscribe:
     environments:

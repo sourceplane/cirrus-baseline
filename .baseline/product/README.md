@@ -10,7 +10,7 @@ Merges to `main` deploy it to `stage` and `prod`.
 
 <!-- 08-docs:begin -->
 Not recorded yet. The bootstrap's last phase probes every live URL and
-writes the addresses, the workspace and the secrets inventory into
+writes the addresses, the workspace and the secrets the product uses into
 [ai/context/deployment.md](ai/context/deployment.md); how the product
 deploys and how to operate it is in
 [ai/context/operations.md](ai/context/operations.md).

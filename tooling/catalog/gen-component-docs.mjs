@@ -2,8 +2,11 @@
 // Generates each component's catalog docs (overview / architecture / runbook)
 // from its component.yaml and the dependency graph those files already form.
 //
-// Why generated: the workspace Docs library renders a `docs/` folder next to
-// every component.yaml, and there are ~40 of them. Hand-written, they drift the
+// Why generated: every component.yaml attaches its `docs/` folder in
+// `spec.docs` (overview, architecture, runbook), which is what the workspace
+// Docs library shows and what the catalog's docs and runbook checks read — a
+// folder nothing declares is never attached (testing/coverage.test.sh holds
+// the rule) — and there are ~40 of them. Hand-written, they drift the
 // first time a dependency or a wiring secret changes — and a docs page that
 // lies about which secret a Worker needs is worse than no page. Everything here
 // is derived from declarations that CI already validates, so the docs cannot
@@ -97,7 +100,11 @@ function discover() {
 
 // ── Page bodies ─────────────────────────────────────────────────
 
-const PRODUCT = "cirrus";
+// The tree's own name as rebrand.mjs knows it (`.baseline/identity.json`'s
+// `slug`). A product's copy of these pages is rebranded, and only that string
+// is renamed into the product's: any other word for this baseline (it was
+// "cirrus", which the identity no longer is) ships into every product as is.
+const PRODUCT = JSON.parse(fs.readFileSync(path.join(ROOT, ".baseline", "identity.json"), "utf8")).slug;
 
 function overview(component, byName, dependents) {
   const kind = {

@@ -6,7 +6,7 @@ Part of the cirrus-baseline runtime: a Cloudflare Worker serving static assets p
 
 ## Depends on
 
-- **api-edge** — Cloudflare Worker for the API edge Runtime
+- (none)
 
 ## Depended on by
 

@@ -10,11 +10,11 @@ operate it" from the repository alone.
 
 | file | content |
 |---|---|
-| `ai/context/deployment.md` | REGENERATED manifest: live URLs with probe results, workspace/project identity, secrets inventory **by name only**, integration statuses, baseline provenance, CI lane pin |
+| `ai/context/deployment.md` | REGENERATED manifest: live URLs with probe results, workspace/project identity, the secrets the product uses **by name only** with where each lives, CI lane pin. It asks the platform nothing: what the workspace holds right now (every secret, the integrations and their health) is on the console's Secrets and Integrations pages, which the record points to |
 | `ai/context/operations.md` | the standing operating contract (architecture, tenancy resolution, deploy pipeline, secrets model, verification, troubleshooting). Healed from the baseline template when the product predates it; never rewritten after that |
 | `README.md` | the section between `<!-- 08-docs:begin -->` / `<!-- 08-docs:end -->` markers is replaced (markers are appended for READMEs that predate them) |
 
-No secret VALUE is ever read or written — inventories are names/statuses.
+No secret VALUE is ever read or written — secrets are named, not read.
 
 ## Steps
 
@@ -39,14 +39,16 @@ No secret VALUE is ever read or written — inventories are names/statuses.
    whole fix for a bootstrap that stopped early.
 4. **docs** — a `post` hook runs `hooks/render-deployment-docs.sh` from the
    baseline checkout: it probes the four public URLs (plus the custom domain
-   when `productdomain` is set), lists secrets/integrations by name, and
-   renders the files above. The script itself refuses to finish if a
-   `TBD_08DOCS` placeholder survives.
-4. **land** — `orun.pr/land@v1`. A docs-only landing plans ZERO deploy
-   lanes, so this phase has no convergence to watch — it is the one phase
-   whose `await` is a probe alone.
-5. **verify** — an `orun.http/probe@v1` `await` hook re-probes the URLs the
-   manifest claims, trusting nothing the render step said about them.
+   when `productdomain` is set), names the secrets the product's manifests
+   use and where each lives, and renders the files above. The script itself
+   refuses to finish if a `TBD_08DOCS` placeholder survives.
+5. **task** — `orun.task/ensure@v1` finds the phase's task and yields its
+   key.
+6. **land** — `orun.pr/land@v1`, its commit checked in the box
+   (`checks: local`) and merged. A docs-only landing plans ZERO deploy
+   lanes, so this phase has no convergence to watch — and nothing after it
+   to wait for: the render's probes, recorded in the manifest, are the
+   phase's check.
 
 `08-docs` requires `01-product`. Re-run it once an owner has wired the
 custom domain to pick up the domain URLs.
@@ -97,13 +99,14 @@ Preview with zero side effects: drop `--run-hooks` — the phase places files
 and stops, with no repo, no landing, no convergence watch and no probe. Add
 `--status` to derive every phase's state and write nothing at all.
 Re-running a completed phase is always safe (idempotent): the placement is a
-no-op, the landing finds nothing, and the `await` hooks re-assert.
+no-op, and the render probes again and rewrites the record (with its new
+timestamp), which the landing lands; it redeploys nothing.
 
 ## Troubleshooting
 
-- **verify fails on a URL** — the manifest is honest: something the docs
-  would claim live is not. Re-run phase 05/06's verify to localize.
-- **secrets/integrations listed as "unavailable to this credential"** —
-  the runner's token cannot list that rung; the manifest still renders
-  (URLs and identity are the load-bearing parts). Re-run with a
-  fuller-scoped credential to enrich it.
+- **a URL is recorded as `unreachable` or `answering 5xx`** — the manifest
+  is honest: something the docs would claim live is not. Re-run
+  `01-product`, whose `verify` probe names the address, to localize.
+- **what does the workspace hold right now?** — not in the record, by
+  design: the console's Secrets and Integrations pages show it live. The
+  record names the secrets the product uses and where each one lives.

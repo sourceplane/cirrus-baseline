@@ -8,6 +8,8 @@ Part of the cirrus-baseline runtime: a Cloudflare Worker deployed per environmen
 
 - **events-worker** — Cloudflare Worker for the Events and Audit runtime
 - **db-migrate** — Applies database migrations to the stage and prod Cloudflare D1 databases
+- **policy-worker** — Cloudflare Worker for policy authorization decisions
+- **cloudflare-d1** — Provisions the Cloudflare D1 platform database for stage and prod
 
 ## Depended on by
 

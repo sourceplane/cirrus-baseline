@@ -12,19 +12,22 @@ layer is now a typed action inside the binary, which is why the version floor
 matters and why a phase can be run alone, months later, from a fresh
 container.
 
-Target wall-clock: **about half an hour** (it was under an hour; see
-[docs/phases/TIMINGS.md](docs/phases/TIMINGS.md) for what a run measured). Five landings instead of eight, each
-pull request checked by `plan` alone because its merge runs the lanes on
-main anyway, the worker fleet deployed in two parallel waves instead of in
-binding order, and stage and prod deployed side by side until `08-docs`
-restores the promotion gate — [docs/phases/README.md](docs/phases/README.md)
+Target wall-clock: **about thirteen minutes** — an estimate summed from the
+phases (12 + 1) until a one-landing build measures it; the last measurement
+was five landings ([docs/phases/TIMINGS.md](docs/phases/TIMINGS.md)). The
+shape: the task set-up in the background while ONE landing is placed,
+branded and checked in the box (`orun validate` and `orun plan`, no runner
+waited for), then one convergence that deploys the data plane, the
+migrations, the fleet with its bindings, the edge and the console in
+dependency order, stage and prod side by side, then a short docs landing
+that restores the promotion gate — [docs/phases/README.md](docs/phases/README.md)
 has the account. The Cloudflare-only data plane creates in seconds, which is
 where this baseline is cheaper than a Postgres-backed one.
 
 ## 0. What you need
 
 - GitHub org access (repo creation) and a machine with `git`, `gh`, `node`
-  (≥20), `pnpm`, `python3`, and the `orun` CLI **≥ v2.58.11**. That is the
+  (≥20), `pnpm`, `python3`, and the `orun` CLI **≥ v2.88.0**. That is the
   floor for RUNNING the bootstrap; the product's own `ci.yml` lane pin is a
   separate, lower floor (≥ v2.56.2). v2.56.0 carried the phase overlay (before
   it there is no `--phase` and `hooks.{pre,post,await}` does not parse);
@@ -32,18 +35,19 @@ where this baseline is cheaper than a Postgres-backed one.
   resolves a milestone name and a rendered bool; v2.58.5 is the first that
   can bootstrap at all — it writes each phase's files on that phase's turn,
   its landing commits, seeds an empty repository and deletes the branch it
-  merged, and a convergence watches the commit it landed (`sha:`); and v2.58.6
-  is the first whose landing waits for a PR's whole CI run — every phase here
-  is a pull request that must go green before it merges; and v2.58.7 checks
-  that the workspace's GitHub connection is to the account that owns the
-  repository (`githubOwner`), without which no PR is ever seen by the platform;
-  and v2.58.8 looks for the wiring secrets on the project's environments,
-  where the infrastructure publishes them (`secrets/exists` `environments`);
-  v2.58.10 treats a project the bootstrap has not created yet as "not yet"
-  rather than a failed preflight, without which every fresh build stops before
-  its first phase; and v2.58.11 fills `orunWorkspace` from the workspace the
-  build runs in (`from: workspace`), which is the only way a console build has
-  of saying it.
+  merged, and a convergence watches the commit it landed (`sha:`); and v2.58.7
+  checks that the workspace's GitHub connection is to the account that owns
+  the repository (`githubOwner`), without which no PR is ever seen by the
+  platform; v2.58.10 treats a project the bootstrap has not created yet as
+  "not yet" rather than a failed preflight, without which every fresh build
+  stops before its first phase; v2.58.11 fills `orunWorkspace` from the
+  workspace the build runs in (`from: workspace`), which is the only way a
+  console build has of saying it; v2.87.0 mints the three deploy credentials
+  in one `secrets` reconcile, side by side; and v2.88.0 runs the task set-up
+  in the background (`background: true`), so the placement, the rebrand, the
+  repository and the secrets run beside it, and checks each landing in the
+  box before it merges (`checks: local`: `orun validate`, then `orun plan` as
+  the pull request and as the merge), so no landing waits for a runner.
 - A Cloudflare account (Workers paid plan for the fleet) and its **Account
   API token** (the console's Connect recipe lists the exact permission
   groups). It is the ONLY provider credential this baseline needs — and it
@@ -158,8 +162,9 @@ minutes, so the consent can be clicked while it waits:
   token's permission groups omit D1 Write, the `d1-edit` mint is refused
   (`parent_grant_insufficient`) and `01-product` stops with that
   message — re-issue the token with D1 Write, re-connect, and re-run the
-  phase. Its three secret hooks are a *reconcile*: keys that exist are kept,
-  keys that are missing are re-minted against the ACTIVE connection.
+  phase. Its one `secrets` hook is a *reconcile* of all three keys: keys that
+  exist are kept, keys that are missing are re-minted against the ACTIVE
+  connection, side by side.
 
 ## 2. Headless / container mode (Daytona, CI, any sandbox)
 
@@ -199,7 +204,7 @@ every phase's state and is the flag for that.
 
 | requirement | detail |
 |---|---|
-| image deps | `git`, `gh`, `node` (≥20), `pnpm`, `python3`, `curl`, `orun` ≥ v2.58.11 to run the bootstrap. The product's `ci.yml` lane pin (≥ v2.56.2) is its own floor |
+| image deps | `git`, `gh`, `node` (≥20), `pnpm`, `python3`, `curl`, `orun` ≥ v2.88.0 to run the bootstrap. The product's `ci.yml` lane pin (≥ v2.56.2) is its own floor |
 | `ORUN_TOKEN` | orun access token; the typed actions authenticate with it (no login flow) |
 | `GITHUB_TOKEN` | fine-grained PAT: **read** on `sourceplane/cirrus` (the clone); on the PRODUCT repo: **contents write** (pushes), **pull-requests write** (landings), **actions read+write** (`orun.run/watch@v1` watches runs and auto-resumes via `gh run rerun`), **checks read**; **repo create** on the org if `01-product` creates the repo (or pre-create it — supported) |
 | pinning | the clone's `--branch <tag>` pins EVERYTHING: the blueprint, its modules, and the hooks' scripts all come from that one commit. Use a tag for reproducible bootstraps; `main` for latest |
@@ -267,11 +272,13 @@ that logic. Then move the registry row in orun-cloud's
 | Terraform: resource already exists (10014 etc.) with empty platform state | `adopt.tf` handles this by importing at plan time — present in the d1 and kv roots. Roots without adoption must be state-migrated or the resource deleted. |
 | Convergence run fails, lanes look transient | `orun.run/watch@v1` already resumes it ×3 (`gh run rerun --failed` = true resume: exec-id + `--retry`). Re-running the phase re-enters the watch on the same run. |
 | Convergence failed AFTER the phase's PR merged; re-running the phase lands nothing and redeploys nothing | Expected on its own: the merge put every file in place, phase state is derived from the tree, and `plan --changed` deploys only what changed. Re-run the phase (`--phase <name>`, `--redo <name>` under `--resume`, or the console's Retry): its `retouch` hook writes `# orun: redeploy <phase> <stamp>` as the last line of each affected `component.yaml`, so the landing has a diff and the phase's components redeploy. If the landing is still empty, the hook did not run (`--run-hooks`) or the contract names no component — `node tooling/bootstrap/retouch.mjs --check …` in the product tree says which. |
-| Worker verify lane: missing `WIRING_*` secret | Its terraform upstream hasn't applied (check that lane first) — inside one convergence run the DAG guarantees order (every reader declares an enforced `dependsOn` on the infra component); across manual partial runs it does not. |
+| Worker verify lane: missing `WIRING_*` secret | Its terraform upstream hasn't applied (check that lane first) — inside one convergence run the DAG guarantees order (every reader declares an enforced `dependsOn` on the infra component); across manual partial runs it does not. There is no separate wiring check after the convergence: a document the apply did not publish shows here, in its readers' lanes. |
 | D1 lane or db-migrate: `Authentication error (10000)` | The lane resolved `CLOUDFLARE_API_TOKEN` (workers-deploy), which cannot touch D1. Both D1 components must bind `CLOUDFLARE_D1_TOKEN`. |
 | 01-product parks: `waiting for github for <org> (connected: <account>)` | The workspace's GitHub connection is to a different account than the one the product repository will live under, so the platform would never see its pull requests. Connect the GitHub App installation on `<org>` to the workspace (console → Integrations → GitHub), then `--resume`. |
 | CLI login dies with 429 `rate_limited` | Fixed ≥ v2.48.1 (redeem honors Retry-After). Upgrade the CLI. |
-| `unknown flag: --phase`, `cannot unmarshal !!map into []scaffold.Hook`, or `orun.run/watch@v1 has no parameter "sha"` | The CLI is below the v2.58.11 floor. This blueprint is not readable by an older one. |
+| `unknown flag: --phase`, `cannot unmarshal !!map into []scaffold.Hook`, `orun.run/watch@v1 has no parameter "sha"`, `has no parameter "secrets"`, `has no parameter "checks"`, or another parse error in the blueprint | The CLI is below the v2.88.0 floor. This blueprint is not readable by an older one. |
+| `land` stops: `the landing's own check failed — orun plan for …` | The product's tree does not plan — the line after it is orun's own error (an unknown component type, a composition that does not resolve). Nothing was pushed. Fix the tree (or the baseline) and re-run the phase. |
+| `land` waits on CI after all | The product's repository requires a status check on `main` (branch protection or a ruleset), so GitHub refused the early merge; the landing waits for the check as a `checks: ci` landing would, then merges. |
 | A fresh build fails in a worker deploy with `10143` (service binding target not found) | The worker does not wait on `policy-worker`, whose pre-deploy places every binding target (`tooling/deploy/fleet-stubs.mjs`): its `dependsOn: policy-worker` must be `mode: enforced`. `testing/fleet-stubs.test.sh` checks every binding holder. |
 | The product's `intent.yaml` says `workspace: ws_SET_ME`, or its secret refs name the repository (`secret://<repo>/…`) | `orunWorkspace` was empty: set it, or run the build in the workspace (ORUN_WORKSPACE) with a CLI ≥ v2.58.11, which fills it from there. |
 | `✕ input "productname" is required` | Required inputs are validated before anything else, so this names the key nobody typed. All three requireds — `reponame`, `productname`, `githuborg` — must be set on every invocation, including single-phase ones. The domain is not one of them (since baseline-v25): a product is born with the placeholder `<reponame>.example.com`. |
