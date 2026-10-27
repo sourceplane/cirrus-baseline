@@ -112,6 +112,7 @@ orun integrations list --org <ws> --json && orun cloud check --org <ws>
 | task | how |
 |---|---|
 | deploy a change | merge to `main`; watch the run; failed lanes → `gh run rerun --failed` |
+| deploy by hand | Orunbase's Deploy button, or `gh workflow run ci.yml --ref main -f environment=<env> [-f component=<a,b>]` — the named components (blank: every one) run in that environment as a merge runs them; started off `main` it is refused |
 | redeploy a component / redo a failed phase | a convergence that failed AFTER its PR merged leaves every file in place, so a plain re-run has nothing to land. Re-run the phase (`--phase <name>`, or `--redo <name>` under `--resume`, or the console's Retry): its `retouch` hook rewrites `# orun: redeploy <phase> <stamp>` as the last line of each affected `component.yaml`, the landing has a diff, and `plan --changed` redeploys exactly those components. The line is a deploy trigger, not state — nothing reads it back, and editing it by hand redeploys one component |
 | re-verify live state + refresh docs | run the docs flow (below); idempotent |
 | add a runtime secret | `orun secrets set <KEY> --org <ws> --env <env>` |
