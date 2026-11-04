@@ -56,6 +56,33 @@ spec:
           - profile: deploy
             when:
               triggerRef: github-push-main
+  # The live preview for orun.work's Preview tab (saas-parallel-baselining
+  # PB4): `orun preview` runs this, and a coding session keeps it running
+  # while it works, so the person watches the console change as it is built.
+  #
+  # KEPT SMALL ON PURPOSE. It is for looking at the UI, inside the coding
+  # session's own box (1 vCPU, 3 GiB, shared with the agent):
+  # - the console alone, `next dev` on the box's loopback. No Worker runs:
+  #   no `needs`, so none of the thirteen workers, Postgres or wrangler start;
+  # - its API is the product's deployed STAGE (CONSOLE_DEPLOY_ENV=stage);
+  # - only the console's own packages are installed (`--filter ...`);
+  # - `next` itself, not `pnpm exec next` (two idle pnpm processes, ~200 MB);
+  # - its heap is capped at 1 GiB, so it can never starve the agent.
+  #   Measured: up in ~17 s, ~830 MB with three pages compiled.
+  # The token-free pages (the landing page, /login, /demo's mock gallery)
+  # show in full. Pages behind sign-in show the sign-in prompt: stage's
+  # sign-in does not return to a preview host.
+  preview:
+    run:
+      - sh
+      - -c
+      - pnpm install --frozen-lockfile --prefer-offline --filter "@saas/web-console-next..." && exec node_modules/.bin/next dev -H 127.0.0.1 -p 3001
+    port: 3001
+    path: /
+    env:
+      CONSOLE_DEPLOY_ENV: stage
+      NODE_OPTIONS: --max-old-space-size=1024
+      NEXT_TELEMETRY_DISABLED: "1"
   parameters:
     nodeVersion: "22"
     pnpmVersion: "10.12.1"

@@ -31,6 +31,23 @@ incremental cache / tag cache / queue — this app has no R2/KV/D1 bindings
 and runs fully session-authenticated, so no persistent caching layer is
 needed.
 
+## Live preview
+
+`orun preview` runs the console the way a coding session on orun.work does,
+for its **Preview** tab (`spec.preview` in `component.yaml`, named by
+`preview:` in `intent.yaml`). It is the console alone: `next dev` on
+127.0.0.1:3001, talking to the product's deployed **stage** API, with only
+its own packages installed and a 1 GiB heap, so it fits beside the agent in
+the session's box. No Worker runs locally. Token-free pages (`/`, `/login`,
+`/demo`) render in full; pages behind sign-in show the sign-in prompt.
+
+```sh
+orun preview start     # waits for :3001
+orun preview status
+orun preview logs web-console-next
+orun preview stop
+```
+
 ## Parity vs. apps/web-console
 
 | Surface                     | web-console (Vite) | web-console-next (Next 15) |
